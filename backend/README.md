@@ -1,3 +1,27 @@
+# Her Space Backend
+
+## Setup
+
+The Laravel backend uses PostgreSQL. Copy `.env.example` to `.env`, then set
+`DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD` for your
+PostgreSQL instance. The PHP installation must have the `pdo_pgsql` extension.
+
+Apply the migrations with `php artisan migrate`. To provision an administrator,
+set `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` in `.env`, then run:
+
+```powershell
+php artisan db:seed --class="Database\Seeders\AdminUserSeeder"
+```
+
+The admin monitor is available at `/admin/login`. Its pages and private Potret
+image route require an active account with the `admin` or `super_admin` role.
+Potret files are stored on Laravel's private `local` disk, not in the public
+web directory.
+
+Build the Inertia Vue frontend with `npm run build`.
+
+---
+
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
 <p align="center">

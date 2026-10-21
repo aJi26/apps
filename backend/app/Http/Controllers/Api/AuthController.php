@@ -38,12 +38,13 @@ class AuthController extends Controller
 
         $user = User::where('email', $validated['email'])->first();
 
-        if (! $user || ! Hash::check($validated['password'], $user->password)) {
+        if (! $user || ! $user->is_active || ! Hash::check($validated['password'], $user->password)) {
             return response()->json([
                 'message' => 'Email atau password tidak valid.',
             ], 401);
         }
 
+        $user->forceFill(['last_login_at' => now()])->save();
         $token = $user->createToken('mobile')->plainTextToken;
 
         return response()->json([

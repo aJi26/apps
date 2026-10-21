@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\DailyCheckin;
+use App\Models\ActivityLog;
 use App\Models\Portrait;
 use App\Models\User;
 use Carbon\Carbon;
@@ -92,6 +93,14 @@ class DailyPotretController extends Controller
                     'checkin_id' => $checkin->id,
                     'path' => $path,
                     'original_name' => $photo->getClientOriginalName(),
+                ]);
+
+                ActivityLog::create([
+                    'user_id' => $user->id,
+                    'action' => 'completed daily Potret',
+                    'type' => 'Check-in',
+                    'subject_type' => Portrait::class,
+                    'subject_id' => $portrait->id,
                 ]);
 
                 return ['portrait' => $portrait, 'created' => true];
