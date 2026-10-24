@@ -18,7 +18,12 @@ class AuthController extends Controller
             'password' => ['required', 'string', 'min:8'],
         ]);
 
-        $user = User::create($validated);
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+        ]);
+
         $token = $user->createToken('mobile')->plainTextToken;
 
         return response()->json([
@@ -38,7 +43,7 @@ class AuthController extends Controller
 
         $user = User::where('email', $validated['email'])->first();
 
-        if (! $user || ! $user->is_active || ! Hash::check($validated['password'], $user->password)) {
+        if (! $user || ! Hash::check($validated['password'], $user->password)) {
             return response()->json([
                 'message' => 'Email atau password tidak valid.',
             ], 401);
@@ -46,12 +51,13 @@ class AuthController extends Controller
 
         $user->forceFill(['last_login_at' => now()])->save();
         $token = $user->createToken('mobile')->plainTextToken;
+        $profile = Profile::where('user_id', $user->id)->first();
 
         return response()->json([
             'user' => $user,
             'token' => $token,
             'token_type' => 'Bearer',
-            'profile_setup_required' => ! Profile::where('user_id', $user->id)->exists(),
+            'profile_setup_required' => ! $profile || ! $profile->birthday,
         ]);
     }
 
@@ -71,13 +77,20 @@ class AuthController extends Controller
     public function profileSetup(Request $request)
     {
         $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
             'birthday' => ['sometimes', 'nullable', 'date', 'before_or_equal:today'],
+            'avatar' => ['sometimes', 'string', 'max:20'],
         ]);
+
+        $request->user()->update(['name' => $validated['name']]);
 
         $profile = Profile::firstOrNew(['user_id' => $request->user()->id]);
 
         if (array_key_exists('birthday', $validated)) {
             $profile->birthday = $validated['birthday'];
+        }
+        if (array_key_exists('avatar', $validated)) {
+            $profile->avatar = $validated['avatar'];
         }
 
         $profile->save();

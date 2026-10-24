@@ -1,17 +1,16 @@
-# mobile
+# Her Space mobile setup
 
-A new Flutter project.
+Run the Flutter app against the Laravel API:
 
-## Getting Started
+```powershell
+flutter run --dart-define=HER_SPACE_API_URL=http://10.0.2.2:8000/api
+```
 
-This project is a starting point for a Flutter application.
+For a physical device, replace `10.0.2.2` with the reachable LAN address of the machine running Laravel.
 
-A few resources to get you started if this is your first Flutter project:
+Run the profile avatar migrations from the Laravel backend before using profile setup or avatar upload:
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```powershell
+cd backend
+php artisan migrate
+```

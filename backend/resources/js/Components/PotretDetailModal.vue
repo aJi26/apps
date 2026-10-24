@@ -15,7 +15,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['close', 'prev', 'next']);
+const emit = defineEmits(['close', 'prev', 'next', 'delete']);
 
 const hasMultiple = computed(() => props.photos.length > 1);
 const displayIndex = computed(() => {
@@ -124,25 +124,40 @@ const currentPhoto = computed(() => {
           </div>
         </div>
 
-        <div class="flex gap-2.5">
-          <a
-            :href="currentPhoto.image_url || currentPhoto.url"
-            target="_blank"
-            download
-            class="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border border-[#EAE7E1] bg-white py-3 text-xs font-semibold text-[#2C3E35] transition hover:bg-[#E8ECE9] shadow-xs"
-          >
-            <svg class="h-4 w-4 text-[#8A9992]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Download
-          </a>
+        <!-- Tombol Aksi (Download, View Details, & Delete) -->
+        <div class="space-y-2">
+          <div class="flex gap-2">
+            <a
+              :href="currentPhoto.image_url || currentPhoto.url"
+              target="_blank"
+              download
+              class="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border border-[#EAE7E1] bg-white py-3 text-xs font-semibold text-[#2C3E35] transition hover:bg-[#E8ECE9] shadow-xs"
+            >
+              <svg class="h-4 w-4 text-[#8A9992]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Download
+            </a>
 
+            <button
+              @click="emit('close')"
+              type="button"
+              class="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-[#2C3E35] py-3 text-xs font-bold text-white transition hover:bg-[#202e27] shadow-sm"
+            >
+              View Details
+            </button>
+          </div>
+
+          <!-- Tombol Hapus Foto -->
           <button
-            @click="emit('close')"
+            @click="emit('delete', currentPhoto.id)"
             type="button"
-            class="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-[#2C3E35] py-3 text-xs font-bold text-white transition hover:bg-[#202e27] shadow-sm"
+            class="w-full flex items-center justify-center gap-1.5 rounded-2xl border border-[#FEEAE6] bg-[#FEEAE6]/50 py-2.5 text-xs font-bold text-[#D96B5B] transition hover:bg-[#FEEAE6]"
           >
-            View Details
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Hapus Foto Ini
           </button>
         </div>
       </div>

@@ -4,15 +4,22 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Wishlist extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'title', 'description', 'url', 'status'];
+    protected $fillable = [
+        'user_id',
+        'category',
+        'title',
+        'description',
+        'url',
+        'image_url',
+        'status',
+    ];
 
-    public function user(): BelongsTo
+    public function user()
     {
         return $this->belongsTo(User::class);
     }

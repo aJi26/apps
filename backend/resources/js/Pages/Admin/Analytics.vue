@@ -4,6 +4,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import BottomNav from '@/Components/BottomNav.vue';
 import FloralDecor from '@/Components/FloralDecor.vue';
 
+
 const props = defineProps({
   engagementData: {
     type: Array,

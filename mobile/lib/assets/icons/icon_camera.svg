@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none" role="img" aria-label="Camera">
+<title>Camera</title>
+<g stroke-linecap="round" stroke-linejoin="round"><path d="M17 42 Q17 35 25 35 H43 L51 25 H76 L84 35 H103 Q111 35 111 43 V91 Q111 99 103 99 H25 Q17 99 17 91Z" fill="#dce5d5" stroke="#526a53" stroke-width="2.5"/><circle cx="64" cy="65" r="21" fill="#fff8ed" stroke="#526a53" stroke-width="2.5"/><circle cx="64" cy="65" r="12" fill="#f6ddd2" stroke="#d99583" stroke-width="2"/><circle cx="64" cy="65" r="5" fill="#edc66d"/><circle cx="94" cy="47" r="3.5" fill="#d99583"/></g>
+</svg>

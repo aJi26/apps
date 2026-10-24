@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import FloralDecor from '@/Components/FloralDecor.vue';
 
+
 const showSplash = ref(false);
 
 const form = useForm({
@@ -15,7 +16,7 @@ const showPassword = ref(false);
 
 const handleLogin = () => {
   form.post('/admin/login', {
-    onFinish: () => form.reset('password'),
+    replace: true, // Mencegah tombol back browser kembali ke halaman login setelah masuk dashboard
   });
 };
 </script>

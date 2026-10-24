@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none" role="img" aria-label="Blush flower">
+<title>Blush flower</title>
+<g stroke-linecap="round" stroke-linejoin="round"><g stroke="#d99583" stroke-width="1.8" fill="#f6ddd2"><ellipse cx="64" cy="36" rx="12" ry="23"/><ellipse cx="64" cy="36" rx="12" ry="23" transform="rotate(72 64 52)"/><ellipse cx="64" cy="36" rx="12" ry="23" transform="rotate(144 64 52)"/><ellipse cx="64" cy="36" rx="12" ry="23" transform="rotate(216 64 52)"/><ellipse cx="64" cy="36" rx="12" ry="23" transform="rotate(288 64 52)"/><circle cx="64" cy="52" r="8" fill="#edc66d" stroke="#526a53"/><path d="M64 61 C62 79 66 98 63 119" stroke="#526a53" fill="none"/><path d="M64 88 C44 78 38 88 43 97 C51 100 60 95 64 88Z" fill="#dce5d5" stroke="#526a53"/><path d="M64 102 C82 88 92 95 86 104 C79 109 70 107 64 102Z" fill="#a5b79b" stroke="#526a53"/></g></g>
+</svg>

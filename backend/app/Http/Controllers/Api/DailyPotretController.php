@@ -31,7 +31,46 @@ class DailyPotretController extends Controller
             'date' => $today,
             'completed' => $portrait !== null,
             'checkin_id' => $portrait ? $checkin->id : null,
+            'portrait' => $portrait ? [
+                'id' => $portrait->id,
+                'date' => $portrait->created_at->format('d M Y'),
+                'time' => $portrait->created_at->format('H:i'),
+                'image_url' => str_starts_with($portrait->path, 'http') ? $portrait->path : url("/api/portraits/{$portrait->id}/image"),
+            ] : null,
         ]);
+    }
+
+    public function gallery(Request $request)
+    {
+        $portraits = $request->user()->portraits()
+            ->with('checkin')
+            ->latest()
+            ->get()
+            ->map(function ($portrait) {
+                return [
+                    'id' => $portrait->id,
+                    'date' => $portrait->created_at->format('d M Y'),
+                    'time' => $portrait->created_at->format('H:i'),
+                    'image_url' => str_starts_with($portrait->path, 'http') ? $portrait->path : url("/api/portraits/{$portrait->id}/image"),
+                ];
+            });
+
+        return response()->json([
+            'portraits' => $portraits,
+        ]);
+    }
+
+    public function getImage(Request $request, Portrait $portrait)
+    {
+        abort_unless($portrait->checkin?->user_id === $request->user()->id, 403);
+
+        if (str_starts_with($portrait->path, 'http://') || str_starts_with($portrait->path, 'https://')) {
+            return redirect($portrait->path);
+        }
+
+        abort_unless(Storage::disk('local')->exists($portrait->path), 404);
+
+        return Storage::disk('local')->response($portrait->path);
     }
 
     public function uploadPotret(Request $request)
@@ -53,7 +92,10 @@ class DailyPotretController extends Controller
                 return response()->json([
                     'message' => 'Potret hari ini sudah selesai.',
                     'completed' => true,
-                    'portrait' => $existingPortrait,
+                    'portrait' => [
+                        'id' => $existingPortrait->id,
+                        'image_url' => str_starts_with($existingPortrait->path, 'http') ? $existingPortrait->path : url("/api/portraits/{$existingPortrait->id}/image"),
+                    ],
                 ]);
             }
         }
@@ -113,7 +155,10 @@ class DailyPotretController extends Controller
                     ? 'Potret berhasil disimpan.'
                     : 'Potret hari ini sudah selesai.',
                 'completed' => true,
-                'portrait' => $result['portrait'],
+                'portrait' => [
+                    'id' => $result['portrait']->id,
+                    'image_url' => str_starts_with($result['portrait']->path, 'http') ? $result['portrait']->path : url("/api/portraits/{$result['portrait']->id}/image"),
+                ],
             ], $result['created'] ? 201 : 200);
         } finally {
             if (! $keepFile) {

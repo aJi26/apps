@@ -13,6 +13,8 @@ class Profile extends Model
     protected $fillable = [
         'user_id',
         'birthday',
+        'avatar',
+        'avatar_path',
     ];
 
     protected $casts = [

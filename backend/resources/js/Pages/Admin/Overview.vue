@@ -5,6 +5,7 @@ import BottomNav from '@/Components/BottomNav.vue';
 import FloralDecor from '@/Components/FloralDecor.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 
+
 const props = defineProps({
   stats: {
     type: Object,

@@ -20,6 +20,7 @@ class MonitorController extends Controller
 {
     public function loginPage()
     {
+        // Jika sudah login, langsung lempar ke dashboard (mencegah akses halaman login via URL/Back)
         if (Auth::check() && Auth::user()->isAdmin()) {
             return redirect()->route('admin.dashboard');
         }
@@ -66,6 +67,7 @@ class MonitorController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
+        // Arahkan kembali ke halaman splash/login awal
         return redirect()->route('admin.login');
     }
 
@@ -100,14 +102,14 @@ class MonitorController extends Controller
                     'birthday' => $profile->birthday->format('d M Y'),
                     'birthday_short' => $profile->birthday->format('d M'),
                     'daysUntil' => (int) $today->diffInDays($birthday),
-                    'avatar' => $this->avatar($profile->user->name),
+                    'avatar' => $this->getUserAvatar($profile->user),
                 ];
             })
             ->sortBy('daysUntil')
             ->take(5)
             ->values();
 
-        $activities = ActivityLog::with('user')
+        $activities = ActivityLog::with('user.profile')
             ->latest()
             ->take(6)
             ->get()
@@ -156,7 +158,7 @@ class MonitorController extends Controller
                 'joinedDate' => $user->created_at->format('d M Y'),
                 'joinedDaysAgo' => $user->created_at->diffForHumans(),
                 'birthday' => $user->profile?->birthday?->format('d M Y'),
-                'avatar' => $this->avatar($user->name),
+                'avatar' => $this->getUserAvatar($user),
             ]);
 
         return Inertia::render('Admin/UserList', [
@@ -175,7 +177,7 @@ class MonitorController extends Controller
             'goals' => fn ($query) => $query->latest(),
             'portraits.checkin',
             'quizAttempts' => fn ($query) => $query->with('quiz')->latest(),
-            'activityLogs' => fn ($query) => $query->latest()->take(15),
+            'activityLogs' => fn ($query) => $query->latest()->take(30),
         ]);
 
         $todayCheckin = $user->dailyCheckins()
@@ -185,11 +187,12 @@ class MonitorController extends Controller
 
         $portraits = $user->portraits
             ->sortByDesc(fn (Portrait $portrait) => $portrait->created_at)
-            ->take(12)
+            ->take(50)
             ->values()
             ->map(fn (Portrait $portrait) => [
                 'id' => $portrait->id,
                 'date' => $portrait->created_at->format('d M Y'),
+                'month_year' => $portrait->created_at->format('F Y'),
                 'time' => $portrait->created_at->format('d M Y • H:i'),
                 'url' => str_starts_with($portrait->path, 'http') ? $portrait->path : route('admin.portraits.image', $portrait),
             ]);
@@ -206,38 +209,47 @@ class MonitorController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'status' => $user->is_active ? 'Active' : 'Inactive',
-                'avatar' => $this->avatar($user->name),
+                'avatar' => $this->getUserAvatar($user),
                 'birthday' => $birthdayFormatted,
                 'joined' => $user->created_at->format('d F Y'),
                 'lastLogin' => $user->last_login_at?->format('d F Y • H:i') ?? 'Belum pernah login',
                 'todayPotret' => $todayCheckin ? 'Completed ('.now()->format('d M Y').')' : 'Not Uploaded Yet',
                 'stats' => [
                     'checkIns' => $user->dailyCheckins()->count(),
-                    'goals' => $user->goals()->where('status', 'active')->count(),
+                    'goals' => $user->goals()->count(),
                 ],
             ],
             'userPotrets' => $portraits,
-            'goals' => $user->goals->map(fn (Goal $goal) => [
-                'id' => $goal->id,
-                'title' => $goal->title,
-                'category' => 'Goal',
-                'target_date' => $goal->target_date ? 'Target: '.$goal->target_date->format('d M Y') : 'Target: 31 Dec 2025',
-                'status' => ucfirst($goal->status),
-                'progress' => $goal->description ? (str_contains($goal->description, '%') ? $goal->description : $goal->description.'%') : ($goal->status === 'completed' ? '100%' : '50%'),
-            ])->values(),
+            'goals' => $user->goals->map(function (Goal $goal) {
+                $val = $goal->progress ?? $goal->description;
+                preg_match('/\d+/', (string)$val, $matches);
+                $percent = isset($matches[0]) ? (int)$matches[0] : ($goal->status === 'completed' ? 100 : 50);
+                $percent = min(100, max(0, $percent));
+
+                return [
+                    'id' => $goal->id,
+                    'title' => $goal->title,
+                    'category' => 'Goal',
+                    'target_date' => $goal->target_date ? 'Target: '.$goal->target_date->format('d M Y') : 'Target: Not set',
+                    'status' => ucfirst($goal->status),
+                    'progress' => $percent . '%',
+                    'progress_num' => $percent,
+                ];
+            })->values(),
             'quizzes' => $user->quizAttempts
                 ->filter(fn ($attempt) => $attempt->quiz !== null)
                 ->map(fn ($attempt) => [
                     'id' => $attempt->id,
-                    'title' => $attempt->quiz->title,
+                    'title' => $attempt->quiz->title ?? 'Personality Quiz',
                     'date' => ($attempt->completed_at ?? $attempt->started_at)->format('d M Y'),
-                    'score' => $attempt->score === null ? 'Not scored' : $attempt->score.'%',
+                    'score' => $attempt->score === null ? 'Completed' : $attempt->score.'%',
                     'status' => $attempt->completed_at ? 'Completed' : 'In Progress',
                 ])->values(),
             'activityHistory' => $user->activityLogs->map(fn ($act) => [
                 'id' => $act->id,
                 'action' => $act->action,
                 'type' => $act->type ?? 'Check-in',
+                'details' => $act->details ?? $act->action,
                 'date' => $act->created_at->format('d M Y • H:i'),
                 'time' => $act->created_at->diffForHumans(),
             ])->values(),
@@ -252,6 +264,7 @@ class MonitorController extends Controller
         $search = strtolower($filters['search'] ?? '');
 
         $users = User::has('portraits')
+            ->with('profile')
             ->withCount('portraits')
             ->when($search !== '', fn ($query) => $query->whereRaw('LOWER(name) LIKE ?', ['%'.$search.'%']))
             ->latest()
@@ -261,10 +274,7 @@ class MonitorController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'photosCount' => $user->portraits_count,
-                'avatar' => $this->avatar($user->name),
-                'initials' => strtoupper(substr($user->name, 0, 2)),
-                'avatarBg' => 'E8ECE9',
-                'avatarColor' => '2C3E35',
+                'avatar' => $this->getUserAvatar($user),
             ]);
 
         return Inertia::render('Admin/DailyPotretIndex', [
@@ -277,6 +287,8 @@ class MonitorController extends Controller
 
     public function userPotret(User $user)
     {
+        $user->load('profile');
+
         $photos = $user->portraits()
             ->with('checkin')
             ->latest()
@@ -288,7 +300,7 @@ class MonitorController extends Controller
                 'image_url' => str_starts_with($portrait->path, 'http') ? $portrait->path : route('admin.portraits.image', $portrait),
                 'uploaded_at' => $portrait->created_at->format('d M Y • H:i'),
                 'user_name' => $user->name,
-                'avatar' => $this->avatar($user->name),
+                'avatar' => $this->getUserAvatar($user),
             ]);
 
         return Inertia::render('Admin/DailyPotretShow', [
@@ -296,7 +308,7 @@ class MonitorController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
-                'avatar' => $this->avatar($user->name),
+                'avatar' => $this->getUserAvatar($user),
             ],
             'photos' => $photos,
         ]);
@@ -311,7 +323,7 @@ class MonitorController extends Controller
         $search = strtolower($filters['search'] ?? '');
         $type = $filters['type'] ?? 'All';
 
-        $activities = ActivityLog::with('user')
+        $activities = ActivityLog::with('user.profile')
             ->when($search !== '', fn ($query) => $query->where(function ($query) use ($search) {
                 $query->whereRaw('LOWER(action) LIKE ?', ['%'.$search.'%'])
                     ->orWhereHas('user', fn ($query) => $query->whereRaw('LOWER(name) LIKE ?', ['%'.$search.'%']));
@@ -361,6 +373,7 @@ class MonitorController extends Controller
     public function settings()
     {
         $user = request()->user();
+        $user->load('profile');
         $role = $user->adminRoles()
             ->whereIn('role', ['admin', 'super_admin'])
             ->value('role');
@@ -371,11 +384,94 @@ class MonitorController extends Controller
                 'email' => $user->email,
                 'role' => ucwords(str_replace('_', ' ', $role ?? 'Super Admin')),
                 'phone' => '+62 812 3456 7890',
-                'birthday' => '14 February 1998',
+                'birthday' => $user->profile?->birthday?->format('Y-m-d') ?? '1998-02-14',
                 'joined' => $user->created_at ? $user->created_at->format('d F Y') : '12 October 2025',
-                'avatar' => $this->avatar($user->name, '#2C3E35', '#FFFFFF'),
+                'avatar' => $this->getUserAvatar($user),
             ],
+            // Ambil data akun langsung dari PostgreSQL
+            'accounts' => User::all()->map(fn ($u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'email' => $u->email,
+                'role' => $u->isAdmin() ? 'Admin' : 'User',
+                'status' => $u->is_active ? 'Active' : 'Inactive',
+            ]),
         ]);
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $user->id,
+            'phone' => 'nullable|string|max:20',
+            'birthday' => 'nullable|date',
+            'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+        ]);
+
+        $user->update([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+        ]);
+
+        $profile = $user->profile()->firstOrCreate(['user_id' => $user->id]);
+
+        $profileData = [
+            'phone' => $validated['phone'] ?? null,
+            'birthday' => $validated['birthday'] ?? null,
+        ];
+
+        if ($request->hasFile('avatar')) {
+            $path = $request->file('avatar')->store('avatars', 'public');
+            $profileData['avatar_path'] = $path;
+        }
+
+        $profile->update($profileData);
+
+        return back()->with('success', 'Profil admin berhasil diperbarui.');
+    }
+
+    public function storeUser(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:6',
+            'is_active' => 'boolean',
+        ]);
+
+        User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => bcrypt($validated['password']),
+            'is_active' => $request->boolean('is_active', true),
+        ]);
+
+        return back()->with('success', 'Akun berhasil dibuat.');
+    }
+
+    public function updateUser(Request $request, User $user)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $user->id,
+        ]);
+
+        $user->update([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+        ]);
+
+        return back()->with('success', 'Akun berhasil diperbarui.');
+    }
+
+    public function destroyUser(User $user)
+    {
+        $user->delete();
+
+        return back()->with('success', 'Akun berhasil dihapus.');
     }
 
     public function portraitImage(Portrait $portrait)
@@ -384,14 +480,87 @@ class MonitorController extends Controller
             return redirect($portrait->path);
         }
 
-        abort_unless(Storage::disk('local')->exists($portrait->path), 404);
+        if (Storage::disk('public')->exists($portrait->path)) {
+            return Storage::disk('public')->response($portrait->path);
+        }
 
-        return Storage::disk('local')->response($portrait->path);
+        if (Storage::disk('local')->exists($portrait->path)) {
+            return Storage::disk('local')->response($portrait->path);
+        }
+
+        abort(404, 'Gambar tidak ditemukan');
+    }
+
+    public function destroyPortrait(Portrait $portrait)
+    {
+        // Hapus file fisik dari storage jika ada
+        if ($portrait->path) {
+            if (Storage::disk('public')->exists($portrait->path)) {
+                Storage::disk('public')->delete($portrait->path);
+            }
+            if (Storage::disk('local')->exists($portrait->path)) {
+                Storage::disk('local')->delete($portrait->path);
+            }
+        }
+
+        // Hapus data dari database
+        $portrait->delete();
+
+        return back()->with('success', 'Foto potret berhasil dihapus.');
+    }
+
+    private function getUserAvatar(?User $user): string
+    {
+        if (! $user) {
+            return $this->avatar('User Her Space');
+        }
+
+        $profile = $user->profile;
+
+        // 1. Prioritaskan file foto fisik dari Flutter (kolom 'avatar_path')
+        if ($profile && ! empty($profile->avatar_path)) {
+            $path = ltrim($profile->avatar_path, '/');
+
+            // Jika tersimpan di disk 'local'
+            if (Storage::disk('local')->exists($path)) {
+                // Karena disimpan di disk local internal, buatkan URL response atau panggil via route khusus
+                return route('admin.user.avatar', $user->id);
+            }
+
+            // Jika tersimpan di disk 'public'
+            if (Storage::disk('public')->exists($path)) {
+                return asset('storage/' . $path);
+            }
+        }
+
+        // 2. Jika ada URL gambar eksternal di kolom 'avatar'
+        $avatar = $profile?->avatar;
+        if (! empty($avatar)) {
+            if (str_starts_with($avatar, 'http://') || str_starts_with($avatar, 'https://')) {
+                return $avatar;
+            }
+
+            if (Storage::disk('public')->exists($avatar)) {
+                return asset('storage/' . ltrim($avatar, '/'));
+            }
+        }
+
+        // 3. Fallback otomatis ke generator SVG Inisial Nama
+        return $this->avatar($user->name);
+    }
+
+    public function userAvatar(User $user)
+    {
+        $path = $user->profile?->avatar_path;
+        abort_unless($path && Storage::disk('local')->exists($path), 404);
+
+        return Storage::disk('local')->response($path);
     }
 
     private function formatActivity(ActivityLog $activity): array
     {
-        $name = $activity->user?->name ?? 'Sarah Wijaya';
+        $user = $activity->user;
+        $name = $user?->name ?? 'User Her Space';
 
         return [
             'id' => $activity->id,
@@ -399,7 +568,7 @@ class MonitorController extends Controller
             'action' => $activity->action,
             'type' => $activity->type ?? 'Other',
             'time' => $activity->created_at->diffForHumans(),
-            'avatar' => $this->avatar($name),
+            'avatar' => $this->getUserAvatar($user),
         ];
     }
 

@@ -1,9 +1,10 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import BottomNav from '@/Components/BottomNav.vue';
 import PotretDetailModal from '@/Components/PotretDetailModal.vue';
 import EmptyState from '@/Components/EmptyState.vue';
+
 
 const props = defineProps({
   user: {
@@ -16,7 +17,7 @@ const props = defineProps({
   },
 });
 
-const viewMode = ref('detail'); // 'detail' (Panel 11) or 'grid'
+const viewMode = ref('detail');
 const activeIndex = ref(0);
 const isModalOpen = ref(false);
 
@@ -45,6 +46,20 @@ const selectPhoto = (index) => {
   activeIndex.value = index;
   viewMode.value = 'detail';
 };
+
+const deletePhoto = (photoId) => {
+  if (confirm('Apakah Anda yakin ingin menghapus foto potret ini?')) {
+    router.delete(`/admin/portraits/${photoId}`, {
+      preserveScroll: true,
+      onSuccess: () => {
+        isModalOpen.value = false;
+        if (activeIndex.value > 0) {
+          activeIndex.value--;
+        }
+      },
+    });
+  }
+};
 </script>
 
 <template>
@@ -56,7 +71,7 @@ const selectPhoto = (index) => {
       <!-- Content Area -->
       <div class="p-6 overflow-y-auto flex-1 space-y-4">
         
-        <!-- Header Nav (Panel 11) -->
+        <!-- Header Nav -->
         <div class="flex items-center justify-between">
           <Link href="/admin/daily-potret" class="text-[#2C3E35] p-1 -ml-1 hover:opacity-70 transition">
             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
@@ -77,10 +92,9 @@ const selectPhoto = (index) => {
           </div>
         </div>
 
-        <!-- MODE 1: DETAIL CAROUSEL (Panel 11) -->
+        <!-- MODE 1: DETAIL CAROUSEL -->
         <div v-if="viewMode === 'detail' && currentPhoto" class="space-y-4 animate-in fade-in duration-200">
           
-          <!-- Top Carousel Control: < 1 / 12 > -->
           <div class="flex items-center justify-between text-[#2C3E35] bg-white border border-[#EAE7E1] py-2 px-4 rounded-2xl shadow-xs">
             <button 
               @click="prevPhoto" 
@@ -105,7 +119,6 @@ const selectPhoto = (index) => {
             </button>
           </div>
 
-          <!-- Large Main Photo Frame (Panel 11) -->
           <div class="relative aspect-[3/4] w-full overflow-hidden rounded-[2.5rem] bg-gray-100 shadow-md border border-[#EAE7E1] group cursor-pointer" @click="isModalOpen = true">
             <img 
               :src="currentPhoto.image_url" 
@@ -120,7 +133,6 @@ const selectPhoto = (index) => {
             </div>
           </div>
 
-          <!-- User Card & Action Buttons (Panel 11) -->
           <div class="bg-white border border-[#EAE7E1] rounded-3xl p-4 shadow-xs space-y-4">
             <div class="flex items-center gap-3">
               <img :src="user.avatar" alt="Avatar" class="w-11 h-11 rounded-full object-cover border border-[#EAE7E1]">
@@ -154,7 +166,7 @@ const selectPhoto = (index) => {
 
         </div>
 
-        <!-- MODE 2: GRID VIEW (Panel 6 Style) -->
+        <!-- MODE 2: GRID VIEW -->
         <div v-else-if="viewMode === 'grid' && photos.length > 0" class="space-y-3 animate-in fade-in duration-200">
           <div class="flex items-center justify-between">
             <span class="text-xs font-bold text-[#2C3E35] uppercase tracking-wider font-serif">All Photos</span>
@@ -198,6 +210,7 @@ const selectPhoto = (index) => {
       @close="isModalOpen = false"
       @prev="prevPhoto"
       @next="nextPhoto"
+      @delete="deletePhoto"
     />
   </div>
 </template>
