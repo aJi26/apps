@@ -15,7 +15,7 @@ Route::get('/setup-admin-rahasia', function () {
         ['email' => 'admin@herspace.com'],
         [
             'name' => 'Admin HerSpace',
-            'password' => Hash::make('password123'),
+            'password' => Hash::make('admin123'),
             // Hapus tanda komentar (//) di bawah jika tabel user kamu punya kolom role/is_admin:
             // 'role' => 'admin',
             // 'is_admin' => true,
