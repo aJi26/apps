@@ -25,7 +25,7 @@ Route::get('/setup-admin-rahasia', function () {
     // Hubungkan user dengan tabel AdminRole
     AdminRole::firstOrCreate([
         'user_id' => $user->id,
-        'role' => 'super_admin',
+        'role' => 'admin', // Coba ganti dari 'super_admin' ke 'admin'
     ]);
 
     return "Akun admin ({$user->email}) & AdminRole super_admin berhasil dibuat! Silakan login di /admin/login.";
