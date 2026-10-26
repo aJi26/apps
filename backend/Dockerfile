@@ -14,8 +14,12 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 WORKDIR /app
 COPY . .
 
-# Install paket Laravel
+
 RUN composer install --no-dev --optimize-autoloader
+# Install Node.js, NPM, dan kompilasi aset frontend Vite/Vue
+RUN apt-get update && apt-get install -y nodejs npm
+RUN npm install
+RUN npm run build
 
 # Buat folder jika belum ada dan atur permission
 RUN mkdir -p storage/framework/views storage/framework/sessions storage/framework/cache bootstrap/cache \
