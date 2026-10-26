@@ -1,10 +1,28 @@
 <?php
 
 use App\Http\Controllers\Admin\MonitorController;
+use App\Models\User; // 1. Tambahkan import model User di sini
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return redirect()->route('admin.login');
+});
+
+// 2. Rute Sementara untuk Setup Akun Admin
+Route::get('/setup-admin-rahasia', function () {
+    $user = User::updateOrCreate(
+        ['email' => 'admin@herspace.com'],
+        [
+            'name' => 'Admin HerSpace',
+            'password' => Hash::make('password123'),
+            // Hapus tanda komentar (//) di bawah jika tabel user kamu punya kolom role/is_admin:
+            // 'role' => 'admin',
+            // 'is_admin' => true,
+        ]
+    );
+
+    return "Akun admin ({$user->email}) berhasil dibuat! Silakan login di /admin/login.";
 });
 
 Route::prefix('admin')->name('admin.')->group(function () {
