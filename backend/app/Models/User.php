@@ -23,6 +23,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'fcm_token',
         'password',
         'is_active',
     ];
@@ -67,6 +68,11 @@ class User extends Authenticatable
     public function goals(): HasMany
     {
         return $this->hasMany(Goal::class);
+    }
+
+    public function finances(): HasMany
+    {
+        return $this->hasMany(Finance::class); 
     }
 
     public function activityLogs(): HasMany

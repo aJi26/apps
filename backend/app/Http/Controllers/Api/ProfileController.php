@@ -29,6 +29,7 @@ class ProfileController extends Controller
                 'avatar_url' => $user->profile?->avatar_path ? url('/api/profile/avatar') : null,
                 'joined' => $user->created_at->format('d F Y'),
             ],
+            'quiz_completed' => $user->quizAttempts()->exists(),
             'preferences' => [
                 'music' => $preferences->get('music', 'Chill Lo-Fi'),
                 'travel' => $preferences->get('travel', 'Japan & Nature'),
@@ -128,4 +129,3 @@ class ProfileController extends Controller
         return Storage::disk('local')->response($path);
     }
 }
-

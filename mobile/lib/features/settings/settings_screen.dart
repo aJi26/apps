@@ -31,16 +31,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _checkinReminders = prefs.getBool('notif_checkin') ?? true;
-      _activityReminders = prefs.getBool('notif_activity') ?? true;
-      _birthdayWishes = prefs.getBool('notif_birthday') ?? true;
 
       final res = await ApiService.request('GET', 'profile');
       if (res.statusCode == 200) {
         final data = ApiService.decode(res);
         final user = (data['user'] is Map ? data['user'] : data) as Map<String, dynamic>;
+        final profile = (data['profile'] is Map ? data['profile'] : {}) as Map<String, dynamic>;
+
         _userName = user['name']?.toString() ?? '';
         _userEmail = user['email']?.toString() ?? '';
+
+        _checkinReminders = profile['notif_checkin'] ?? (prefs.getBool('notif_checkin') ?? true);
+        _activityReminders = profile['notif_goals'] ?? (prefs.getBool('notif_goals') ?? true);
+        _birthdayWishes = profile['notif_birthday'] ?? (prefs.getBool('notif_birthday') ?? true);
+      } else {
+        _checkinReminders = prefs.getBool('notif_checkin') ?? true;
+        _activityReminders = prefs.getBool('notif_goals') ?? true;
+        _birthdayWishes = prefs.getBool('notif_birthday') ?? true;
       }
     } catch (_) {
     } finally {
@@ -51,11 +58,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _toggleNotif(String key, bool val) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(key, val);
+
     setState(() {
       if (key == 'notif_checkin') _checkinReminders = val;
-      if (key == 'notif_activity') _activityReminders = val;
+      if (key == 'notif_goals') _activityReminders = val;
       if (key == 'notif_birthday') _birthdayWishes = val;
     });
+
+    try {
+      await ApiService.request(
+        'PUT',
+        'profile',
+        body: {
+          'notif_checkin': _checkinReminders,
+          'notif_goals': _activityReminders,
+          'notif_birthday': _birthdayWishes,
+        },
+      );
+    } catch (_) {}
   }
 
   void _showEditAccountDialog() {
@@ -86,7 +106,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Email',
                   prefixIcon: Icon(Icons.email_outlined),
-                  hintText: 'user@herspace.com',
+                  hintText: 'user@gmail.com',
                 ),
               ),
             ],
@@ -338,7 +358,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         activeColor: AppTheme.current.primary,
                         title: const Text('Activity & Goals Reminders'),
                         subtitle: const Text('Updates on notes, goals & wishlist items'),
-                        onChanged: (val) => _toggleNotif('notif_activity', val),
+                        onChanged: (val) => _toggleNotif('notif_goals', val),
                       ),
                       const Divider(height: 1),
                       SwitchListTile(

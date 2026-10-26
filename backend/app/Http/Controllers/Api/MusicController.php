@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\UserPreference;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -11,17 +12,30 @@ use Illuminate\Support\Facades\Log;
 
 class MusicController extends Controller
 {
-    // Mesin Pencari Musik iTunes dengan Caching (Otomatis Cepat & Hemat Request)
+    // Helper untuk mengambil mood terbaru user menggunakan Model UserPreference
+    private function getUserMood($user): string
+    {
+        $mood = UserPreference::where('user_id', $user->id)
+            ->where('preference_key', 'today_mood')
+            ->latest('id')
+            ->value('preference_value');
+
+        if (!empty($mood)) {
+            return trim($mood);
+        }
+
+        return trim($user->profile?->current_mood ?? 'Calm');
+    }
+
+    // Mesin Pencari Musik iTunes dengan Caching
     private function fetchLiveTracks($searchTerm, $limit = 25)
     {
-        // Buat Kunci Cache Unik berdasarkan Query & Limit
         $cacheKey = 'itunes_search_' . md5($searchTerm . '_' . $limit);
 
-        // Cache hasil pencarian selama 12 jam (43200 detik)
         return Cache::remember($cacheKey, 43200, function () use ($searchTerm, $limit) {
             try {
                 $response = Http::withoutVerifying()
-                    ->timeout(5) // Kurangi timeout dari 8s ke 5s agar tidak menggantung lama
+                    ->timeout(5)
                     ->get('https://itunes.apple.com/search', [
                         'term' => $searchTerm,
                         'entity' => 'song',
@@ -59,13 +73,14 @@ class MusicController extends Controller
     public function dailyRecommendation(Request $request)
     {
         $user = $request->user();
-        $currentMood = $user->profile?->current_mood ?? 'Calm';
+        $currentMood = $this->getUserMood($user);
 
+        // Pencocokan string mood dari Flutter ('Amazing', 'Good', 'Calm', 'Tired', 'Not great')
         $query = match (strtolower($currentMood)) {
-            'amazing', 'happy' => 'top global pop happy hits',
-            'anxious', 'sad' => 'top sad pop ballads melodic rap',
+            'amazing', 'good', 'happy' => 'top global pop happy hits',
+            'tired', 'not great', 'anxious', 'sad' => 'top sad pop ballads acoustic',
             'calm', 'peaceful' => 'chill soft pop rnb hits',
-            default => 'top global charts hits',
+            default => 'chill soft pop rnb hits',
         };
 
         $tracks = $this->fetchLiveTracks($query, 30);
@@ -91,21 +106,22 @@ class MusicController extends Controller
         ]);
     }
 
-    // 2. Explore Genres (Dinamis per Mood & Teroptimasi Cache)
+    // 2. Explore Genres (Dinamis per Mood)
     public function categories(Request $request)
     {
         $user = $request->user();
-        $currentMood = strtolower($user->profile?->current_mood ?? 'calm');
+        $rawMood = $this->getUserMood($user);
+        $currentMood = strtolower($rawMood);
 
         $moodCategories = match ($currentMood) {
-            'amazing', 'happy' => [
+            'amazing', 'good', 'happy' => [
                 'Mainstream Pop Hits' => 'top pop hits',
                 'Upbeat Rap & Hip-Hop' => 'top hip hop rap hits',
                 'Viral Hipdut & Party' => 'hiphop dangdut viral',
                 'Energetic K-Pop' => 'top kpop energetic hits',
                 'Feel-Good R&B' => 'feel good rnb pop',
             ],
-            'anxious', 'sad' => [
+            'tired', 'not great', 'anxious', 'sad' => [
                 'Sad Pop & Ballads' => 'top sad pop ballads',
                 'Melodic Rap & Emo Beats' => 'melodic rap emo hip hop',
                 'Galau Indo & Hipdut' => 'galau hipdut pop jawa',
@@ -152,14 +168,14 @@ class MusicController extends Controller
     public function communityPlaylists(Request $request)
     {
         $user = $request->user();
-        $currentMood = strtolower($user->profile?->current_mood ?? 'calm');
+        $currentMood = strtolower($this->getUserMood($user));
 
         $modifiers = ['Vault', 'Mix', 'Sessions', 'Vibes', 'Archive', 'Collection', 'Essentials', 'Radio'];
         $randomModifier = $modifiers[array_rand($modifiers)];
 
         $baseQuery = match ($currentMood) {
-            'amazing', 'happy' => 'upbeat party viral hits',
-            'anxious', 'sad' => 'sad acoustic galau hits',
+            'amazing', 'good', 'happy' => 'upbeat party viral hits',
+            'tired', 'not great', 'anxious', 'sad' => 'sad acoustic galau hits',
             default => 'chill late night lofi',
         };
 

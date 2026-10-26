@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/services/api_service.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../daily_checkin/daily_checkin_screen.dart';
+import '../finance/finance_screen.dart';
 import '../goals/goals_screen.dart';
 import '../mood_history/mood_history_screen.dart';
 import '../music/music_screen.dart';
@@ -13,7 +15,7 @@ import '../profile/profile_screen.dart';
 import '../randomizer/randomizer_screen.dart';
 import '../wishlist/wishlist_screen.dart';
 
-// Widget Animasi Sentuh / Hover Mikro Interaktif
+// Widget Animasi Sentuh Interaktif
 class ScaleButton extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;
@@ -35,7 +37,7 @@ class _ScaleButtonState extends State<ScaleButton> {
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: widget.onTap,
       child: AnimatedScale(
-        scale: _isPressed ? 0.94 : 1.0,
+        scale: _isPressed ? 0.95 : 1.0,
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOutCubic,
         child: widget.child,
@@ -67,6 +69,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _load();
+
+    NotificationService.syncFcmTokenWithBackend();
   }
 
   @override
@@ -75,11 +79,38 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
+  (IconData, Color) _getGreetingIconInfo() {
+    final hour = DateTime.now().hour;
+
+    if (hour >= 5 && hour < 11) {
+      // Pagi (05:00 - 10:59): Matahari Terbit
+      return (Icons.wb_twilight_rounded, const Color(0xFFFFB74D));
+    } else if (hour >= 11 && hour < 15) {
+      // Siang (11:00 - 14:59): Matahari Terik
+      return (Icons.wb_sunny_rounded, const Color(0xFFFFA000));
+    } else if (hour >= 15 && hour < 18) {
+      // Sore (15:00 - 17:59): Senja
+      return (Icons.wb_sunny_outlined, const Color(0xFFFF7043));
+    } else {
+      // Malam (18:00 - 04:59): Bulan & Bintang
+      return (Icons.nights_stay_rounded, const Color(0xFF7E57C2));
+    }
+  }
+
+  String _getCleanGreeting() {
+    final raw = _dashboard['greeting']?.toString() ?? 'Good day, lovely!';
+    return raw.replaceAll(RegExp(r'[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}]', unicode: true), '').trim();
+  }
+
+  Future<void> _load({bool silent = false}) async {
     try {
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
       _cacheBuster = DateTime.now().millisecondsSinceEpoch;
+
+      if (!silent && _user.isEmpty) {
+        if (mounted) setState(() => _loading = true);
+      }
 
       _token = await ApiService.getToken() ?? '';
 
@@ -97,7 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final results = await Future.wait([
         ApiService.request('GET', 'dashboard'),
         ApiService.request('GET', 'profile'),
-        ApiService.request('GET', 'quiz/latest-result'),
+        ApiService.request('GET', 'quiz/result'),
       ]);
 
       if (results[0].statusCode == 200) {
@@ -159,16 +190,19 @@ class _HomeScreenState extends State<HomeScreen> {
     Widget screen;
     switch (feature) {
       case 'Notes':
-        screen = NotesScreen();
+        screen = const NotesScreen();
         break;
       case 'Goals':
-        screen = GoalsScreen();
+        screen = const GoalsScreen();
         break;
       case 'Wishlist':
-        screen = WishlistScreen();
+        screen = const WishlistScreen();
+        break;
+      case 'Finance':
+        screen = const FinanceScreen();
         break;
       case 'Randomizer':
-        screen = RandomizerScreen();
+        screen = const RandomizerScreen();
         break;
       case 'Mood history':
         screen = const MoodHistoryScreen();
@@ -200,155 +234,178 @@ class _HomeScreenState extends State<HomeScreen> {
       'P': 50,
     };
 
-    showDialog<void>(
+    showGeneralDialog<void>(
       context: context,
-      builder: (dialogContext) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.all(22),
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (dialogContext, anim1, anim2) {
+        return Center(
           child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
+            padding: const EdgeInsets.all(22),
+            child: Material(
+              color: Colors.white,
+              elevation: 8,
+              borderRadius: BorderRadius.circular(24),
+              child: Padding(
+                padding: const EdgeInsets.all(22),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: primaryColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        code,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            subtitle,
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: primaryColor,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            code,
                             style: const TextStyle(
+                              color: Colors.white,
                               fontWeight: FontWeight.bold,
-                              fontSize: 15,
+                              fontSize: 18,
+                              letterSpacing: 1.2,
                             ),
                           ),
-                          const Text(
-                            'Hasil Refleksi MBTI',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textMuted,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                subtitle,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const Text(
+                                'Hasil Refleksi MBTI',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: sageSoftColor,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: primaryColor.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('💡 ', style: TextStyle(fontSize: 14)),
+                          Expanded(
+                            child: Text(
+                              'Kuesioner ini cocok untuk refleksi diri dan mengenali preferensi pribadi, bukan instrumen MBTI® resmi maupun diagnosis psikologis.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: primaryColor,
+                                height: 1.35,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      icon: const Icon(Icons.close),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Rincian 4 Dimensi Preferensi',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _buildDimensionBar(
+                      'Extraversion (E)',
+                      scores['E'] ?? 0,
+                      'Introversion (I)',
+                      scores['I'] ?? 0,
+                      primaryColor,
+                      sageSoftColor,
+                    ),
+                    _buildDimensionBar(
+                      'Sensing (S)',
+                      scores['S'] ?? 0,
+                      'Intuition (N)',
+                      scores['N'] ?? 0,
+                      primaryColor,
+                      sageSoftColor,
+                    ),
+                    _buildDimensionBar(
+                      'Thinking (T)',
+                      scores['T'] ?? 0,
+                      'Feeling (F)',
+                      scores['F'] ?? 0,
+                      primaryColor,
+                      sageSoftColor,
+                    ),
+                    _buildDimensionBar(
+                      'Judging (J)',
+                      scores['J'] ?? 0,
+                      'Perceiving (P)',
+                      scores['P'] ?? 0,
+                      primaryColor,
+                      sageSoftColor,
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Tutup',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF8E7),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.amber.shade200),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('💡 ', style: TextStyle(fontSize: 14)),
-                      Expanded(
-                        child: Text(
-                          'Kuesioner ini cocok untuk refleksi diri dan mengenali preferensi pribadi, bukan instrumen MBTI® resmi maupun diagnosis psikologis.',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.amber.shade900,
-                            height: 1.35,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Rincian 4 Dimensi Preferensi',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                _buildDimensionBar(
-                  'Extraversion (E)',
-                  scores['E'] ?? 0,
-                  'Introversion (I)',
-                  scores['I'] ?? 0,
-                  primaryColor,
-                  sageSoftColor,
-                ),
-                _buildDimensionBar(
-                  'Sensing (S)',
-                  scores['S'] ?? 0,
-                  'Intuition (N)',
-                  scores['N'] ?? 0,
-                  primaryColor,
-                  sageSoftColor,
-                ),
-                _buildDimensionBar(
-                  'Thinking (T)',
-                  scores['T'] ?? 0,
-                  'Feeling (F)',
-                  scores['F'] ?? 0,
-                  primaryColor,
-                  sageSoftColor,
-                ),
-                _buildDimensionBar(
-                  'Judging (J)',
-                  scores['J'] ?? 0,
-                  'Perceiving (P)',
-                  scores['P'] ?? 0,
-                  primaryColor,
-                  sageSoftColor,
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(dialogContext),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Tutup',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        final curved = Curves.easeOutBack.transform(anim1.value);
+        return Transform.scale(
+          scale: curved.clamp(0.0, 1.0),
+          child: Opacity(
+            opacity: anim1.value,
+            child: child,
+          ),
+        );
+      },
     );
   }
 
@@ -424,7 +481,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   shape: BoxShape.circle,
                   color: sageSoftColor,
                   border: Border.all(
-                    color: primaryColor.withOpacity(0.3),
+                    color: primaryColor.withValues(alpha: 0.3),
                     width: 2,
                   ),
                 ),
@@ -519,6 +576,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ('Add a note', Icons.edit_note, 'Notes'),
                 ('Add a goal', Icons.flag_outlined, 'Goals'),
                 ('Add a wishlist item', Icons.card_giftcard, 'Wishlist'),
+                ('Add transaction', Icons.account_balance_wallet_outlined, 'Finance'),
                 ('Take today’s photo', Icons.camera_alt_outlined, 'Snapshot'),
               ])
                 ListTile(
@@ -609,7 +667,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 const gapWidth = 54.0;
                 final tabWidth = (totalWidth - gapWidth) / 4;
                 const pillWidth = 50.0;
-                const pillHeight = 30.0;
 
                 final basePad = (tabWidth - pillWidth) / 2;
                 double leftOffset;
@@ -634,7 +691,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 50.0,
                         height: 32.0,
                         decoration: BoxDecoration(
-                          color: primaryColor.withOpacity(0.18),
+                          color: primaryColor.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
@@ -714,6 +771,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final String? avatarUrl = _getFormattedAvatarUrl();
     final primaryColor = AppTheme.current.primary;
     final sageSoftColor = AppTheme.current.sageSoft;
+    final greetingIconInfo = _getGreetingIconInfo();
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -727,10 +785,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _dashboard['greeting']?.toString() ?? 'Good day, lovely!',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _getCleanGreeting(),
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          greetingIconInfo.$1,
+                          color: greetingIconInfo.$2,
+                          size: 24,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -755,7 +827,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     border: Border.all(color: Colors.white, width: 2),
                     boxShadow: [
                       BoxShadow(
-                        color: primaryColor.withOpacity(0.18),
+                        color: primaryColor.withValues(alpha: 0.18),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -796,11 +868,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: sageSoftColor,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: primaryColor.withOpacity(0.3),
+                    color: primaryColor.withValues(alpha: 0.3),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: primaryColor.withOpacity(0.12),
+                      color: primaryColor.withValues(alpha: 0.12),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -846,9 +918,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             child: Row(
               children: [
-                const Icon(
-                  Icons.wb_sunny_outlined,
-                  color: AppTheme.gold,
+                Icon(
+                  greetingIconInfo.$1,
+                  color: greetingIconInfo.$2,
                   size: 30,
                 ),
                 const SizedBox(width: 12),
@@ -899,17 +971,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 const Color(0xFFFFF3E0),
                 const Color(0xFFFB8C00),
               ),
+              // Tombol Goals diganti ke Warm Mocha / Soft Chocolate
               _shortcut(
                 Icons.flag_rounded,
                 'Goals',
-                const Color(0xFFE8F5E9),
-                const Color(0xFF4CAF50),
+                const Color(0xFFF5EBE6),
+                const Color(0xFF8D6E63),
               ),
               _shortcut(
                 Icons.card_giftcard_rounded,
                 'Wishlist',
                 const Color(0xFFFCE4EC),
                 const Color(0xFFEC407A),
+              ),
+              _shortcut(
+                Icons.account_balance_wallet_rounded,
+                'Finance',
+                const Color(0xFFE0F2F1),
+                const Color(0xFF00897B),
               ),
               _shortcut(
                 Icons.auto_awesome_rounded,
@@ -954,10 +1033,10 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: BoxDecoration(
                 color: sageSoftColor,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: primaryColor.withOpacity(0.2)),
+                border: Border.all(color: primaryColor.withValues(alpha: 0.2)),
                 boxShadow: [
                   BoxShadow(
-                    color: primaryColor.withOpacity(0.10),
+                    color: primaryColor.withValues(alpha: 0.10),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -1022,6 +1101,11 @@ class _HomeScreenState extends State<HomeScreen> {
             'Keep the things you’re dreaming of.',
             Icons.card_giftcard,
           ),
+          (
+            'Finance',
+            'Track your income, expenses & savings.',
+            Icons.account_balance_wallet_outlined,
+          ),
         ])
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
@@ -1035,7 +1119,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   border: Border.all(color: AppTheme.border),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 8,
                       offset: const Offset(0, 3),
                     ),
@@ -1109,7 +1193,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
-                    color: iconColor.withOpacity(0.18),
+                    color: iconColor.withValues(alpha: 0.18),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),

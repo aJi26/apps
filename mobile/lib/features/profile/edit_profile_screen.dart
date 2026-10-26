@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/services/api_service.dart';
@@ -84,15 +85,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _choosePhoto() async {
-    final result = await _picker.pickImage(
+    final pickedFile = await _picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 86,
+      imageQuality: 90,
+    );
+
+    if (pickedFile == null || !mounted) return;
+
+    // Proses Crop Foto
+    final croppedFile = await ImageCropper().cropImage(
+      sourcePath: pickedFile.path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1), // Crop rasio 1:1 (Presisi foto profil)
+      compressQuality: 85,
       maxWidth: 512,
       maxHeight: 512,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Potong Foto Profil',
+          toolbarColor: AppTheme.primary,
+          toolbarWidgetColor: Colors.white,
+          initAspectRatio: CropAspectRatioPreset.square,
+          lockAspectRatio: true,
+          hideBottomControls: false,
+        ),
+        IOSUiSettings(
+          title: 'Potong Foto Profil',
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+        ),
+      ],
     );
-    if (result != null && mounted) {
+
+    if (croppedFile != null && mounted) {
       setState(() {
-        _photo = File(result.path);
+        _photo = File(croppedFile.path);
         _existingAvatarUrl = null;
       });
     }
@@ -131,7 +157,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           );
         }
       }
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

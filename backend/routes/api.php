@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\GoalController;
 use App\Http\Controllers\Api\MusicController;
 use App\Http\Controllers\Api\MusicRandomizerController;
 use App\Http\Controllers\Api\NoteController;
+use App\Http\Controllers\Api\FinanceController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\QuizController;
 use App\Http\Controllers\Api\WishlistController;
@@ -22,6 +23,7 @@ use Illuminate\Support\Facades\Route;
 // Public Auth Routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('auth/google-login', [AuthController::class, 'googleLogin']);
 
 // Protected User Routes (Sanctum)
 Route::middleware('auth:sanctum')->group(function () {
@@ -31,6 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user()->load('profile');
     });
+    Route::post('/user/fcm-token', [UserController::class, 'updateFcmToken']);
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar']);
@@ -68,6 +71,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/wishlist', [WishlistController::class, 'store']);
     Route::put('/wishlist/{wishlist}', [WishlistController::class, 'update']);
     Route::delete('/wishlist/{wishlist}', [WishlistController::class, 'destroy']);
+
+    // Finance & Budgeting
+    Route::get('/finance/summary', [FinanceController::class, 'getSummary']);
+    Route::post('/finance/transaction', [FinanceController::class, 'storeTransaction']);
+    Route::put('/finance/transaction/{finance}', [FinanceController::class, 'updateTransaction']);
+    Route::delete('/finance/transaction/{finance}', [FinanceController::class, 'destroyTransaction']);
+    Route::post('/finance/target', [FinanceController::class, 'setTarget']);
+    Route::post('/finance/sync-from-sheets', [FinanceController::class, 'syncFromSheets']);
+    Route::post('/finance/spreadsheet-id', [FinanceController::class, 'storeSpreadsheetId']);
 
     // Music & Randomizer
     Route::get('/music/playlists', [MusicRandomizerController::class, 'playlists']);

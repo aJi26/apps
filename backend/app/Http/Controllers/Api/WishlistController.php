@@ -11,12 +11,9 @@ class WishlistController extends Controller
 {
     private function getImageUrl($customImageUrl, $url, $title = '', $category = 'Barang')
     {
-        // Jika pengguna mengisi link foto manual secara valid
         if (!empty($customImageUrl) && filter_var($customImageUrl, FILTER_VALIDATE_URL)) {
             return $customImageUrl;
         }
-
-        // Jika tidak diisi manual, kembalikan null agar Flutter merender _buildPlatformHeader (Google Maps / Shopee)
         return null;
     }
 
@@ -26,8 +23,14 @@ class WishlistController extends Controller
         $category = $request->query('category');
 
         $items = $request->user()->wishlists()
-            ->when($status && strtolower($status) !== 'all', function ($query) use ($status) {
-                $query->whereRaw('LOWER(status) = ?', [strtolower($status)]);
+            ->when($status && strtolower($status) !== 'semua' && strtolower($status) !== 'all', function ($query) use ($status) {
+                $st = strtolower($status);
+                // Jika mencari visited / purchased, cocokkan kedua status tersebut untuk kompatibilitas
+                if (in_array($st, ['visited', 'purchased'])) {
+                    $query->whereIn(\DB::raw('LOWER(status)'), ['visited', 'purchased']);
+                } else {
+                    $query->whereRaw('LOWER(status) = ?', [$st]);
+                }
             })
             ->when($category && strtolower($category) !== 'semua', function ($query) use ($category) {
                 $query->whereRaw('LOWER(category) = ?', [strtolower($category)]);
@@ -35,14 +38,20 @@ class WishlistController extends Controller
             ->latest()
             ->get()
             ->map(function ($item) {
+                // Utamakan kolom price, fallback ke description
+                $priceVal = $item->price ?? $item->description ?? 'Rp 0';
+                if (is_numeric($priceVal)) {
+                    $priceVal = 'Rp ' . number_format((float)$priceVal, 0, ',', '.');
+                }
+
                 return [
                     'id' => $item->id,
                     'category' => $item->category ?? 'Barang',
                     'title' => $item->title,
-                    'price' => $item->description ?? 'Rp 0',
+                    'price' => $priceVal,
                     'url' => $item->url,
                     'image_url' => $item->image_url,
-                    'status' => ucfirst($item->status),
+                    'status' => strtolower($item->status),
                     'created_at' => $item->created_at->format('d M Y'),
                 ];
             });
@@ -56,7 +65,7 @@ class WishlistController extends Controller
             'category' => ['nullable', 'string', 'max:50'],
             'title' => ['required', 'string', 'max:255'],
             'price' => ['nullable', 'string', 'max:100'],
-            'status' => ['nullable', 'in:want,considering,purchased,Want,Considering,Purchased'],
+            'status' => ['nullable', 'in:want,considering,purchased,visited,Want,Considering,Purchased,Visited'],
             'url' => ['nullable', 'string', 'max:1000'],
             'image_url' => ['nullable', 'string', 'max:1000'],
         ]);
@@ -64,13 +73,18 @@ class WishlistController extends Controller
         $category = $validated['category'] ?? 'Barang';
         $title = $validated['title'];
         $url = $validated['url'] ?? null;
+        $price = $validated['price'] ?? 'Rp 0';
         
         $imageUrl = $this->getImageUrl($validated['image_url'] ?? null, $url, $title, $category);
+
+        // Ekstrak angka murni untuk disimpan di kolom price
+        $numericPrice = (float) preg_replace('/[^\d]/', '', (string) $price);
 
         $item = $request->user()->wishlists()->create([
             'category' => $category,
             'title' => $title,
-            'description' => $validated['price'] ?? 'Rp 0',
+            'price' => $numericPrice,
+            'description' => $price, // Disimpan di description juga sebagai fallback
             'status' => strtolower($validated['status'] ?? 'want'),
             'url' => $url,
             'image_url' => $imageUrl,
@@ -98,14 +112,15 @@ class WishlistController extends Controller
             'category' => ['sometimes', 'string', 'max:50'],
             'title' => ['sometimes', 'string', 'max:255'],
             'price' => ['nullable', 'string', 'max:100'],
-            'status' => ['sometimes', 'in:want,considering,purchased,Want,Considering,Purchased'],
+            'status' => ['sometimes', 'in:want,considering,purchased,visited,Want,Considering,Purchased,Visited'],
             'url' => ['nullable', 'string', 'max:1000'],
             'image_url' => ['nullable', 'string', 'max:1000'],
         ]);
 
         if (isset($validated['price'])) {
-            $validated['description'] = $validated['price'];
-            unset($validated['price']);
+            $numericPrice = (float) preg_replace('/[^\d]/', '', (string) $validated['price']);
+            $validated['price'] = $numericPrice;
+            $validated['description'] = $request->price;
         }
 
         if (isset($validated['status'])) {

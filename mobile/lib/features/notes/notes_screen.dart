@@ -39,25 +39,46 @@ class _NotesScreenState extends State<NotesScreen> {
     }
   }
 
+  Future<T?> _showAnimatedDialog<T>(Widget child) {
+    return showGeneralDialog<T>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      transitionDuration: const Duration(milliseconds: 320),
+      pageBuilder: (ctx, anim1, anim2) => child,
+      transitionBuilder: (ctx, anim1, anim2, childWidget) {
+        final curvedValue = Curves.easeOutBack.transform(anim1.value);
+        return Transform.scale(
+          scale: curvedValue.clamp(0.0, 1.0),
+          child: Opacity(
+            opacity: anim1.value,
+            child: childWidget,
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _addOrEditNote([Map<String, dynamic>? item]) async {
     final title = TextEditingController(text: item?['title']?.toString() ?? '');
     final content = TextEditingController(text: item?['content']?.toString() ?? '');
     var category = item?['category']?.toString() ?? (_category == 'All' ? 'Personal' : _category);
 
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(item == null ? 'Tambah Catatan' : 'Edit Catatan'),
+    final saved = await _showAnimatedDialog<bool>(
+      AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(item == null ? 'Add Note' : 'Edit Note'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: title, decoration: const InputDecoration(labelText: 'Judul')),
+            TextField(controller: title, decoration: const InputDecoration(labelText: 'Title')),
             const SizedBox(height: 12),
-            TextField(controller: content, maxLines: 4, decoration: const InputDecoration(labelText: 'Isi Catatan')),
+            TextField(controller: content, maxLines: 4, decoration: const InputDecoration(labelText: 'Note Content')),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: ['Personal', 'Ideas', 'To Do'].contains(category) ? category : 'Personal',
-              decoration: const InputDecoration(labelText: 'Kategori'),
+              decoration: const InputDecoration(labelText: 'Category'),
               items: const [
                 DropdownMenuItem(value: 'Personal', child: Text('Personal')),
                 DropdownMenuItem(value: 'Ideas', child: Text('Ideas')),
@@ -68,8 +89,8 @@ class _NotesScreenState extends State<NotesScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Simpan')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save')),
         ],
       ),
     );
@@ -100,21 +121,17 @@ class _NotesScreenState extends State<NotesScreen> {
       backgroundColor: AppTheme.current.background,
       appBar: AppBar(title: const Text('Notes')),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: AppTheme.current.primary, // Mengikuti tema aktif
+        backgroundColor: AppTheme.current.primary,
         foregroundColor: Colors.white,
-        onPressed: () {
-          // 2. Ganti dengan fungsi yang membuka form/halaman tambah data catatan kamu
-          // contoh: _showAddNoteDialog(); atau navigasi ke halaman tambah
-        },
+        onPressed: () => _addOrEditNote(),
         child: const Icon(Icons.add),
       ),
-
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: TextField(
-              decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Cari catatan...'),
+              decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search notes...'),
               onChanged: (val) {
                 _search = val;
                 _loadNotes();
@@ -161,7 +178,7 @@ class _NotesScreenState extends State<NotesScreen> {
                             },
                             itemBuilder: (_) => const [
                               PopupMenuItem(value: 'edit', child: Text('Edit')),
-                              PopupMenuItem(value: 'delete', child: Text('Hapus')),
+                              PopupMenuItem(value: 'delete', child: Text('Delete')),
                             ],
                           ),
                         ),

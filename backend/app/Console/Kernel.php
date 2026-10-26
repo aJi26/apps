@@ -8,11 +8,30 @@ use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 class Kernel extends ConsoleKernel
 {
     /**
+     * The Artisan commands provided by your application.
+     *
+     * @var array
+     */
+    protected $commands = [
+        \App\Console\Commands\SendDailyReminders::class,
+    ];
+
+    /**
      * Define the application's command schedule.
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // 1. Check-in Reminder setiap jam 07:00 Pagi
+        $schedule->command('reminders:send checkin')->dailyAt('07:00');
+
+        // 2. Birthday Wishes setiap jam 00:00 Pagi
+        $schedule->command('reminders:send birthday')->dailyAt('00:00');
+
+        // 3. Goals Reminder setiap jam 19:00 Malam
+        $schedule->command('reminders:send goals')->dailyAt('13:00');
+
+        // 4. Finance Reminder setiap jam 20:00 Malam
+        $schedule->command('reminders:send finance')->dailyAt('19:00');
     }
 
     /**

@@ -1,9 +1,11 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 
 import '../../core/routing/app_router.dart';
 import '../../core/services/api_service.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -18,6 +20,13 @@ class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _register = false, _busy = false, _obscure = true;
+
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: [
+      drive.DriveApi.driveFileScope,
+    ],
+    serverClientId: '698414565888-l4ccgn1ojergb2uts08b5ccpk1n69a2a.apps.googleusercontent.com',
+  );
 
   @override
   void initState() {
@@ -39,17 +48,61 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    setState(() => _busy = true);
+    try {
+      await _googleSignIn.signOut();
+
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        if (mounted) setState(() => _busy = false);
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      final response = await ApiService.request('POST', 'auth/google-login', body: {
+        'id_token': googleAuth.idToken,
+        'email': googleUser.email,
+        'name': googleUser.displayName,
+        'is_register': _register,
+      });
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (mounted) {
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          // 1. Simpan Token Auth
+          await ApiService.saveToken(data['access_token'] as String);
+
+          // 2. Sinkronkan Token FCM HP ke Backend Laravel
+          await NotificationService.syncFcmTokenWithBackend();
+
+          if (!mounted) return;
+          final gateResult = await AppRouter.resolve(context);
+          if (!mounted) return;
+          if (gateResult == GateResult.retry) {
+            _message(
+              'Signed in, but we could not load your space yet. Try again when you are online.',
+            );
+          }
+        } else {
+          _message(data['message']?.toString() ?? 'Google Sign-In failed.');
+        }
+      }
+    } catch (e) {
+      _message('Google Sign-In failed: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _submit() async {
     final emailText = _email.text.trim().toLowerCase();
     final passwordText = _password.text;
 
     if (emailText.isEmpty || passwordText.isEmpty) {
       _message('Please complete each field.');
-      return;
-    }
-
-    if (!emailText.endsWith('@herspace.com')) {
-      _message('Email address must use the @herspace.com.');
       return;
     }
 
@@ -86,7 +139,12 @@ class _LoginScreenState extends State<LoginScreen> {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
 
         if (response.statusCode == 200 || response.statusCode == 201) {
+          // 1. Simpan Token Auth
           await ApiService.saveToken(data['token'] as String);
+
+          // 2. Sinkronkan Token FCM HP ke Backend Laravel
+          await NotificationService.syncFcmTokenWithBackend();
+
           if (!mounted) return;
 
           final gateResult = await AppRouter.resolve(context);
@@ -146,7 +204,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Email address',
                       prefixIcon: Icon(Icons.mail_outline),
-                      hintText: 'user@herspace.com',
+                      hintText: 'user@gmail.com',
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -185,6 +243,32 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           )
                         : Text(_register ? 'Create account' : 'Log in'),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: const [
+                      Expanded(child: Divider()),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          'OR',
+                          style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                        ),
+                      ),
+                      Expanded(child: Divider()),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _handleGoogleSignIn,
+                    icon: const Icon(Icons.g_mobiledata_rounded, size: 28),
+                    label: Text(_register ? 'Sign up with Google' : 'Continue with Google'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 18),
                   TextButton(

@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "698414565888",
+    "project_id": "ajiii26",
+    "storage_bucket": "ajiii26.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:698414565888:android:83d86152c677628077e6e5",
+        "android_client_info": {
+          "package_name": "com.herspace.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "698414565888-mhdiki09a7cjjcanvc1qric2e85blbf9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.herspace.app",
+            "certificate_hash": "8f1f85e39e74c16ce7d8addb180530038e1f48c7"
+          }
+        },
+        {
+          "client_id": "698414565888-l4ccgn1ojergb2uts08b5ccpk1n69a2a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6bq8NlABayfMErSIRX3H-kedQZs9ylFo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "698414565888-l4ccgn1ojergb2uts08b5ccpk1n69a2a.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

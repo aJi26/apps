@@ -16,6 +16,7 @@ class Wishlist extends Model
         'description',
         'url',
         'image_url',
+        'price',
         'status',
     ];
 

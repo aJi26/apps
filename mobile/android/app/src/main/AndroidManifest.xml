@@ -1,11 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Izin Aplikasi -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
-    <!-- Queries untuk Intent Luar (Spotify, YouTube Music, Browser, Text Process) -->
     <queries>
         <intent>
             <action android:name="android.intent.action.VIEW" />
@@ -52,16 +50,22 @@
             </intent-filter>
         </activity>
 
-        <!-- Activity untuk Image Cropper (Crop & Scale Foto Profil) -->
         <activity
             android:name="com.yalantis.ucrop.UCropActivity"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
 
-        <!-- Meta-data Flutter Embedding -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- TAMBAHKAN DUA BARIS META-DATA DI BAWAH INI UNTUK FCM SOUND DEFAULT -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="her_space_channel_id_v5" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_sound"
+            android:resource="@raw/herspace" />
 
     </application>
 </manifest>

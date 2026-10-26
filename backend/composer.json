@@ -10,7 +10,8 @@
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/framework": "^10.10",
         "laravel/sanctum": "^3.3",
-        "laravel/tinker": "^2.8"
+        "laravel/tinker": "^2.8",
+        "revolution/laravel-google-sheets": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",
@@ -51,7 +52,10 @@
     "extra": {
         "laravel": {
             "dont-discover": []
-        }
+        },
+        "google/apiclient-services": [
+            "Sheets"
+        ]
     },
     "config": {
         "optimize-autoloader": true,
