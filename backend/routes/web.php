@@ -1,7 +1,8 @@
 <?php
 
 use App\Http\Controllers\Admin\MonitorController;
-use App\Models\User; // 1. Tambahkan import model User di sini
+use App\Models\AdminRole; // 1. Tambahkan import AdminRole di sini
+use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 
@@ -9,18 +10,25 @@ Route::get('/', function () {
     return redirect()->route('admin.login');
 });
 
-// 2. Rute Sementara untuk Setup Akun Admin
+// 2. Rute Setup Admin yang Disesuaikan dengan AdminUserSeeder
 Route::get('/setup-admin-rahasia', function () {
+    // Buat/update user & aktifkan statusnya
     $user = User::updateOrCreate(
-    ['email' => 'admin@herspace.com'],
-    [
-        'name' => 'Admin HerSpace',
-        'password' => Hash::make('admin123'), // Ganti dengan password yang lebih aman
-        'role' => 'super_admin',       // Atau 'is_admin' => true / 1
-    ]
-);
+        ['email' => 'admin@herspace.com'],
+        [
+            'name' => 'Admin HerSpace',
+            'password' => Hash::make('admin123'),
+            'is_active' => true,
+        ]
+    );
 
-    return "Akun admin ({$user->email}) berhasil dibuat! Silakan login di /admin/login.";
+    // Hubungkan user dengan tabel AdminRole
+    AdminRole::firstOrCreate([
+        'user_id' => $user->id,
+        'role' => 'super_admin',
+    ]);
+
+    return "Akun admin ({$user->email}) & AdminRole super_admin berhasil dibuat! Silakan login di /admin/login.";
 });
 
 Route::prefix('admin')->name('admin.')->group(function () {
