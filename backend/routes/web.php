@@ -10,27 +10,6 @@ Route::get('/', function () {
     return redirect()->route('admin.login');
 });
 
-// 2. Rute Setup Admin yang Disesuaikan dengan AdminUserSeeder
-Route::get('/setup-admin-rahasia', function () {
-    // Buat/update user & aktifkan statusnya
-    $user = User::updateOrCreate(
-        ['email' => 'admin@herspace.com'],
-        [
-            'name' => 'Admin HerSpace',
-            'password' => Hash::make('admin123'),
-            'is_active' => true,
-        ]
-    );
-
-    // Hubungkan user dengan tabel AdminRole
-    AdminRole::firstOrCreate([
-        'user_id' => $user->id,
-        'role' => 'admin', // Coba ganti dari 'super_admin' ke 'admin'
-    ]);
-
-    return "Akun admin ({$user->email}) & AdminRole super_admin berhasil dibuat! Silakan login di /admin/login.";
-});
-
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/login', [MonitorController::class, 'loginPage'])->name('login');
     Route::post('/login', [MonitorController::class, 'login'])->middleware('throttle:5,1')->name('login.submit');

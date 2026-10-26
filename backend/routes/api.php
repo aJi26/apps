@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\QuizController;
 use App\Http\Controllers\Api\WishlistController;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -98,4 +99,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/my-playlists/{id}/tracks', [MusicController::class, 'addTrack']);
         Route::delete('/my-playlists/tracks/{trackId}', [MusicController::class, 'deleteTrack']);
     });
+});
+
+// Cron Job Trigger (Rute Publik dengan Proteksi Token)
+Route::get('/cron/run-schedule/{token}', function ($token) {
+    if ($token !== env('CRON_SECRET_TOKEN', 'HerSpaceCron2026Secure')) {
+        return response()->json(['message' => 'Unauthorized access'], 401);
+    }
+
+    Artisan::call('schedule:run');
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Schedule executed successfully',
+        'output' => Artisan::output()
+    ]);
 });
