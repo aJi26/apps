@@ -17,8 +17,9 @@ COPY . .
 # Install paket Laravel
 RUN composer install --no-dev --optimize-autoloader
 
-# Izinkan Laravel menulis storage & cache
-RUN chmod -R 777 storage bootstrap/cache
+# Buat folder jika belum ada dan atur permission
+RUN mkdir -p storage/framework/views storage/framework/sessions storage/framework/cache bootstrap/cache \
+    && chmod -R 777 storage bootstrap/cache
 
 # Jalankan migrasi database lalu start server
 CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=$PORT
