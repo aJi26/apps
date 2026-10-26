@@ -12,15 +12,13 @@ Route::get('/', function () {
 // 2. Rute Sementara untuk Setup Akun Admin
 Route::get('/setup-admin-rahasia', function () {
     $user = User::updateOrCreate(
-        ['email' => 'admin@herspace.com'],
-        [
-            'name' => 'Admin HerSpace',
-            'password' => Hash::make('admin123'),
-            // Hapus tanda komentar (//) di bawah jika tabel user kamu punya kolom role/is_admin:
-            // 'role' => 'admin',
-            // 'is_admin' => true,
-        ]
-    );
+    ['email' => 'admin@herspace.com'],
+    [
+        'name' => 'Admin HerSpace',
+        'password' => Hash::make('admin123'), // Ganti dengan password yang lebih aman
+        'role' => 'super_admin',       // Atau 'is_admin' => true / 1
+    ]
+);
 
     return "Akun admin ({$user->email}) berhasil dibuat! Silakan login di /admin/login.";
 });
