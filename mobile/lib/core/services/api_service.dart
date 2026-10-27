@@ -8,7 +8,7 @@ class ApiService {
   // Set HER_SPACE_API_URL at build time for the target device/server.
   static const String baseUrl = String.fromEnvironment(
     'HER_SPACE_API_URL',
-    defaultValue: 'http://192.168.100.15:8000/api',
+    defaultValue: 'https://herspace-backend-irtl.onrender.com/api',
   );
   static Future<String?> getToken() async =>
       (await SharedPreferences.getInstance()).getString('auth_token');

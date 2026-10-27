@@ -1,7 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Izin Akses Aplikasi -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <queries>
@@ -26,7 +28,7 @@
     <application
         android:label="Her Space"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/launcher_icon"
         android:usesCleartextTraffic="true">
 
         <!-- Activity Utama Flutter -->
@@ -59,7 +61,7 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- TAMBAHKAN DUA BARIS META-DATA DI BAWAH INI UNTUK FCM SOUND DEFAULT -->
+        <!-- Notification Setup -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="her_space_channel_id_v5" />

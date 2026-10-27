@@ -42,18 +42,21 @@ class DailyPotretController extends Controller
 
     public function gallery(Request $request)
     {
-        $portraits = $request->user()->portraits()
-            ->with('checkin')
-            ->latest()
-            ->get()
-            ->map(function ($portrait) {
-                return [
-                    'id' => $portrait->id,
-                    'date' => $portrait->created_at->format('d M Y'),
-                    'time' => $portrait->created_at->format('H:i'),
-                    'image_url' => str_starts_with($portrait->path, 'http') ? $portrait->path : url("/api/portraits/{$portrait->id}/image"),
-                ];
-            });
+        // Query langsung dari model Portrait berdasarkan checkin user
+        $portraits = Portrait::whereHas('checkin', function ($query) use ($request) {
+            $query->where('user_id', $request->user()->id);
+        })
+        ->with('checkin')
+        ->latest()
+        ->get()
+        ->map(function ($portrait) {
+            return [
+                'id' => $portrait->id,
+                'date' => $portrait->created_at->format('d M Y'),
+                'time' => $portrait->created_at->format('H:i'),
+                'image_url' => str_starts_with($portrait->path, 'http') ? $portrait->path : url("/api/portraits/{$portrait->id}/image"),
+            ];
+        });
 
         return response()->json([
             'portraits' => $portraits,
@@ -81,56 +84,40 @@ class DailyPotretController extends Controller
 
         $user = $request->user();
         $today = Carbon::now(self::TIMEZONE)->toDateString();
-        $existingPortrait = DailyCheckin::where('user_id', $user->id)
-            ->where('checkin_date', $today)
-            ->first();
-
-        if ($existingPortrait) {
-            $existingPortrait = Portrait::where('checkin_id', $existingPortrait->id)->first();
-
-            if ($existingPortrait) {
-                return response()->json([
-                    'message' => 'Potret hari ini sudah selesai.',
-                    'completed' => true,
-                    'portrait' => [
-                        'id' => $existingPortrait->id,
-                        'image_url' => str_starts_with($existingPortrait->path, 'http') ? $existingPortrait->path : url("/api/portraits/{$existingPortrait->id}/image"),
-                    ],
-                ]);
-            }
-        }
-
         $photo = $validated['photo'];
+
         $path = $photo->store('portraits', 'local');
 
         if (! is_string($path) || $path === '') {
             throw new RuntimeException('Foto Potret gagal disimpan ke private storage.');
         }
 
-        $keepFile = false;
-
         try {
             $result = DB::transaction(function () use ($user, $today, $path, $photo) {
                 User::whereKey($user->id)->lockForUpdate()->firstOrFail();
 
-                $checkin = DailyCheckin::where('user_id', $user->id)
-                    ->where('checkin_date', $today)
-                    ->lockForUpdate()
-                    ->first();
+                $checkin = DailyCheckin::firstOrCreate([
+                    'user_id' => $user->id,
+                    'checkin_date' => $today,
+                ]);
 
-                if ($checkin) {
-                    $portrait = Portrait::where('checkin_id', $checkin->id)->first();
+                $existingPortrait = Portrait::where('checkin_id', $checkin->id)->first();
 
-                    if ($portrait) {
-                        return ['portrait' => $portrait, 'created' => false];
+                // Jika sudah ada potret hari ini, perbarui (update) dan hapus file lamanya
+                if ($existingPortrait) {
+                    if (Storage::disk('local')->exists($existingPortrait->path)) {
+                        Storage::disk('local')->delete($existingPortrait->path);
                     }
-                } else {
-                    $checkin = DailyCheckin::create([
-                        'user_id' => $user->id,
-                        'checkin_date' => $today,
+
+                    $existingPortrait->update([
+                        'path' => $path,
+                        'original_name' => $photo->getClientOriginalName(),
                     ]);
+
+                    return ['portrait' => $existingPortrait, 'created' => false];
                 }
 
+                // Jika belum ada, buat baru
                 $portrait = Portrait::create([
                     'checkin_id' => $checkin->id,
                     'path' => $path,
@@ -148,22 +135,17 @@ class DailyPotretController extends Controller
                 return ['portrait' => $portrait, 'created' => true];
             });
 
-            $keepFile = $result['created'];
-
             return response()->json([
-                'message' => $result['created']
-                    ? 'Potret berhasil disimpan.'
-                    : 'Potret hari ini sudah selesai.',
+                'message' => 'Potret berhasil disimpan.',
                 'completed' => true,
                 'portrait' => [
                     'id' => $result['portrait']->id,
                     'image_url' => str_starts_with($result['portrait']->path, 'http') ? $result['portrait']->path : url("/api/portraits/{$result['portrait']->id}/image"),
                 ],
-            ], $result['created'] ? 201 : 200);
-        } finally {
-            if (! $keepFile) {
-                Storage::disk('local')->delete($path);
-            }
+            ], 201);
+        } catch (\Throwable $e) {
+            Storage::disk('local')->delete($path);
+            throw $e;
         }
     }
 }

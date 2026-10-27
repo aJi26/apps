@@ -144,8 +144,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (results[2].statusCode == 200) {
         final quizData = ApiService.decode(results[2]);
-        if (quizData['result'] != null) {
-          _mbtiData = quizData['result'] as Map<String, dynamic>;
+        // Ambil data hasil dari berbagai kemungkinan struktur JSON server
+        final rawResult = quizData['result'] ?? quizData['data'] ?? quizData;
+
+        // Hanya timpa _mbtiData jika respon server benar-benar memiliki field 'scores'
+        if (rawResult is Map<String, dynamic> && rawResult['scores'] != null) {
+          _mbtiData = rawResult;
           _mbtiCode = _mbtiData?['code']?.toString() ??
               _mbtiData?['type']?.toString();
 

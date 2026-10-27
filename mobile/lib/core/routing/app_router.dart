@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
 import '../../features/auth/onboarding_screen.dart';
@@ -30,12 +31,32 @@ class AppRouter {
         return GateResult.routed;
       }
 
-      // 3. Cek Status Kuis MBTI (Onboarding 1x)
+      // 3. Cek Status Kuis MBTI
+      bool isQuizDone = false;
       final quizResponse = await ApiService.request('GET', 'quiz/result');
-      if (quizResponse.statusCode != 200) return GateResult.retry;
       
-      final quizData = ApiService.decode(quizResponse);
-      if (quizData['completed'] != true) {
+      if (quizResponse.statusCode == 200) {
+        final quizData = ApiService.decode(quizResponse);
+        // Toleransi struktur data (direct/nested 'data'/adanya mbti_code)
+        final innerData = quizData['data'] is Map ? quizData['data'] : quizData;
+        if (quizData['completed'] == true || 
+            innerData['completed'] == true || 
+            innerData['mbti_code'] != null || 
+            innerData['code'] != null) {
+          isQuizDone = true;
+        }
+      }
+
+      // Fallback: Jika response API null/berbeda, cek penyimpanan lokal HP
+      if (!isQuizDone) {
+        final prefs = await SharedPreferences.getInstance();
+        if (prefs.getString('mbti_code') != null) {
+          isQuizDone = true;
+        }
+      }
+
+      // Jika belum pernah diisi di server maupun lokal, baru arahkan ke Quiz
+      if (!isQuizDone) {
         if (context.mounted) _replace(context, const PersonalityQuizScreen());
         return GateResult.routed;
       }

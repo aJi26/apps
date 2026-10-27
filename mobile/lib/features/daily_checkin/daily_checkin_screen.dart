@@ -162,7 +162,7 @@ class _SnapshotScreenState extends State<SnapshotScreen>
       }
       final controller = CameraController(
         front,
-        ResolutionPreset.high,
+        ResolutionPreset.ultraHigh,
         enableAudio: false,
         imageFormatGroup: ImageFormatGroup.jpeg,
       );

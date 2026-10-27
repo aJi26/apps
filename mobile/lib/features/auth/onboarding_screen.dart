@@ -4,7 +4,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/theme/app_theme.dart';
 import 'login_screen.dart';
 
-// Widget Mikro-Interaksi Tombol
 class ScaleButton extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;
@@ -65,16 +64,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Precache SVG agar transisi tidak patah-patah
-    for (final page in _pages) {
-      final loader = SvgAssetLoader(page.$3);
-      svg.cache.putIfAbsent(loader.cacheKey(null), () => loader.loadBytes(null));
-    }
-  }
-
-  @override
   void dispose() {
     _pager.dispose();
     _pageNotifier.dispose();
@@ -85,12 +74,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final currentPage = _pageNotifier.value;
     if (currentPage < _pages.length - 1) {
       _pager.nextPage(
-        duration: const Duration(milliseconds: 350),
+        duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOutCubic,
       );
     } else {
       _navigateToLogin();
     }
+  }
+
+  void _skip() {
+    _navigateToLogin();
   }
 
   void _navigateToLogin() {
@@ -115,7 +108,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           );
         },
-        transitionDuration: const Duration(milliseconds: 450),
+        transitionDuration: const Duration(milliseconds: 350),
       ),
     );
   }
@@ -132,22 +125,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           padding: const EdgeInsets.fromLTRB(26, 14, 26, 20),
           child: Column(
             children: [
-              // 1. Tombol Skip / Continue Atas
+              // 1. Tombol Skip / Start Atas
               Align(
                 alignment: Alignment.centerRight,
                 child: ValueListenableBuilder<int>(
                   valueListenable: _pageNotifier,
                   builder: (context, page, _) {
                     return ScaleButton(
-                      onTap: _next,
-                      child: TextButton(
-                        onPressed: _next,
-                        style: TextButton.styleFrom(
-                          foregroundColor: primaryColor,
-                        ),
+                      onTap: page == 2 ? _next : _skip,
+                      child: Container(
+                        color: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         child: Text(
                           page == 2 ? 'Start' : 'Skip',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            color: primaryColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                     );
@@ -155,23 +150,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ),
 
-              // 2. PageView Utama
+              // 2. PageView Utama (Smooth & Anti-lag)
               Expanded(
                 child: PageView.builder(
                   controller: _pager,
+                  physics: const ClampingScrollPhysics(),
                   itemCount: _pages.length,
                   onPageChanged: (value) => _pageNotifier.value = value,
                   itemBuilder: (_, index) {
                     final item = _pages[index];
+                    final isLastPage = index == 2;
+
                     return Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Expanded(
-                          child: SvgPicture.asset(
-                            item.$3,
-                            fit: BoxFit.contain,
-                            semanticsLabel:
-                                'Her Space onboarding illustration ${index + 1}',
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 10),
+                            child: RepaintBoundary(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(isLastPage ? 24.0 : 0.0),
+                                child: SvgPicture.asset(
+                                  item.$3,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -202,7 +206,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ),
 
-              // 3. Dots Indicator Animasi
+              // 3. Dots Indicator
               ValueListenableBuilder<int>(
                 valueListenable: _pageNotifier,
                 builder: (context, page, _) {
@@ -228,31 +232,33 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
               const SizedBox(height: 22),
 
-              // 4. Tombol Utama Bawah dengan ScaleButton
+              // 4. Tombol Utama Bawah
               ValueListenableBuilder<int>(
                 valueListenable: _pageNotifier,
                 builder: (context, page, _) {
                   return ScaleButton(
                     onTap: _next,
-                    child: SizedBox(
+                    child: Container(
                       width: double.infinity,
                       height: 50,
-                      child: ElevatedButton(
-                        onPressed: _next,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryColor,
-                          foregroundColor: Colors.white,
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                      decoration: BoxDecoration(
+                        color: primaryColor,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: primaryColor.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
                           ),
-                        ),
-                        child: Text(
-                          page == 2 ? 'Get started' : 'Continue',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        page == 2 ? 'Get started' : 'Continue',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),

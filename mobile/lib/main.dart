@@ -23,16 +23,17 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
 
-  // Daftarkan handler background FCM
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  
-  await NotificationService.init();
-  await NotificationService.requestPermissionOnFirstLaunch();
-  
-  await AppTheme.initTheme();
-  // 2. DISESUAIKAN MENJADI HerSpaceApp (sebelumnya MyApp)
+  try {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    await NotificationService.init();
+    await NotificationService.requestPermissionOnFirstLaunch();
+    await AppTheme.initTheme();
+  } catch (e) {
+    debugPrint("Error inisialisasi awal: $e");
+  }
+
   runApp(const HerSpaceApp());
 }
 
