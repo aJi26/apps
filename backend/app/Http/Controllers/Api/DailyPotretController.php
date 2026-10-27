@@ -17,18 +17,30 @@ class DailyPotretController extends Controller
 {
     private const TIMEZONE = 'Asia/Jakarta';
 
+    // Penentu "Hari" baru dimulai jam 07:00 Pagi
+    private function getLogicalToday(): string
+    {
+        $now = Carbon::now(self::TIMEZONE);
+        if ($now->format('H:i') < '07:00') {
+            return $now->subDay()->toDateString();
+        }
+        return $now->toDateString();
+    }
+
     public function checkTodayStatus(Request $request)
     {
-        $today = Carbon::now(self::TIMEZONE)->toDateString();
+        $logicalToday = $this->getLogicalToday();
+        
         $checkin = DailyCheckin::where('user_id', $request->user()->id)
-            ->where('checkin_date', $today)
+            ->where('checkin_date', $logicalToday)
             ->first();
+            
         $portrait = $checkin
             ? Portrait::where('checkin_id', $checkin->id)->first()
             : null;
 
         return response()->json([
-            'date' => $today,
+            'date' => $logicalToday,
             'completed' => $portrait !== null,
             'checkin_id' => $portrait ? $checkin->id : null,
             'portrait' => $portrait ? [
@@ -42,7 +54,6 @@ class DailyPotretController extends Controller
 
     public function gallery(Request $request)
     {
-        // Query langsung dari model Portrait berdasarkan checkin user
         $portraits = Portrait::whereHas('checkin', function ($query) use ($request) {
             $query->where('user_id', $request->user()->id);
         })
@@ -83,7 +94,7 @@ class DailyPotretController extends Controller
         ]);
 
         $user = $request->user();
-        $today = Carbon::now(self::TIMEZONE)->toDateString();
+        $logicalToday = $this->getLogicalToday();
         $photo = $validated['photo'];
 
         $path = $photo->store('portraits', 'local');
@@ -93,17 +104,16 @@ class DailyPotretController extends Controller
         }
 
         try {
-            $result = DB::transaction(function () use ($user, $today, $path, $photo) {
+            $result = DB::transaction(function () use ($user, $logicalToday, $path, $photo) {
                 User::whereKey($user->id)->lockForUpdate()->firstOrFail();
 
                 $checkin = DailyCheckin::firstOrCreate([
                     'user_id' => $user->id,
-                    'checkin_date' => $today,
+                    'checkin_date' => $logicalToday,
                 ]);
 
                 $existingPortrait = Portrait::where('checkin_id', $checkin->id)->first();
 
-                // Jika sudah ada potret hari ini, perbarui (update) dan hapus file lamanya
                 if ($existingPortrait) {
                     if (Storage::disk('local')->exists($existingPortrait->path)) {
                         Storage::disk('local')->delete($existingPortrait->path);
@@ -117,7 +127,6 @@ class DailyPotretController extends Controller
                     return ['portrait' => $existingPortrait, 'created' => false];
                 }
 
-                // Jika belum ada, buat baru
                 $portrait = Portrait::create([
                     'checkin_id' => $checkin->id,
                     'path' => $path,

@@ -13,25 +13,47 @@ class DashboardController extends Controller
 {
     private const TIMEZONE = 'Asia/Jakarta';
 
+    // Penentu "Hari" baru dimulai jam 07:00 Pagi
+    private function getLogicalToday(Carbon $date): string
+    {
+        if ($date->format('H:i') < '07:00') {
+            return $date->copy()->subDay()->toDateString();
+        }
+        return $date->toDateString();
+    }
+
     public function index(Request $request)
     {
         $user = $request->user();
-        $today = Carbon::now(self::TIMEZONE)->toDateString();
+        $now = Carbon::now(self::TIMEZONE);
+        
+        // Tanggal secara logika (Reset jam 7 pagi)
+        $logicalToday = $this->getLogicalToday($now);
 
         // Checkin status
         $checkin = DailyCheckin::where('user_id', $user->id)
-            ->where('checkin_date', $today)
+            ->where('checkin_date', $logicalToday)
             ->first();
         $hasPotret = $checkin
             ? Portrait::where('checkin_id', $checkin->id)->exists()
             : false;
 
         // Current mood
-        $mood = UserPreference::where('user_id', $user->id)
+        $moodPreference = UserPreference::where('user_id', $user->id)
             ->where('preference_key', 'today_mood')
-            ->value('preference_value') ?? 'Calm';
+            ->first();
 
-        // Quotes list for Today's little thing
+        // Validasi: Mood hanya dikirim jika diisi pada "Hari Logis" yang sama
+        $mood = null;
+        if ($moodPreference) {
+            $moodDate = Carbon::parse($moodPreference->updated_at)->timezone(self::TIMEZONE);
+            $moodLogicalToday = $this->getLogicalToday($moodDate);
+            
+            if ($moodLogicalToday === $logicalToday) {
+                $mood = $moodPreference->preference_value;
+            }
+        }
+
         $quotes = [
             "Take a little break today. You've been doing your best. ♡",
             "Small progress is still progress. Be proud of yourself today. ✨",
@@ -39,11 +61,12 @@ class DashboardController extends Controller
             "Your journey is uniquely yours. Embrace every step. ♡",
             "Remember to do something kind for yourself today. 🌸",
         ];
-        $todayQuote = $quotes[abs(crc32($today)) % count($quotes)];
+        // Quote berganti berdasarkan tanggal kalender asli agar tetap segar
+        $todayQuote = $quotes[abs(crc32($now->toDateString())) % count($quotes)];
 
         return response()->json([
             'greeting' => $this->getGreeting() . ', ' . explode(' ', $user->name)[0] . '! ☀️',
-            'date' => Carbon::now(self::TIMEZONE)->format('l, d F Y'),
+            'date' => $now->format('l, d F Y'), // Tanggal asli tetap tampil di UI
             'today_quote' => $todayQuote,
             'current_mood' => $mood,
             'summary' => [
@@ -80,4 +103,3 @@ class DashboardController extends Controller
         return 'Good evening';
     }
 }
-
