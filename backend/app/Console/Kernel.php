@@ -22,16 +22,24 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         // 1. Check-in Reminder setiap jam 07:00 Pagi
-        $schedule->command('reminders:send checkin')->dailyAt('07:00');
+        $schedule->command('reminders:send checkin')
+        ->dailyAt('07:00')
+        ->timezone('Asia/Jakarta');;
 
         // 2. Birthday Wishes setiap jam 00:00 Pagi
-        $schedule->command('reminders:send birthday')->dailyAt('00:00');
+        $schedule->command('reminders:send birthday')
+        ->dailyAt('00:00')
+        ->timezone('Asia/Jakarta');
 
-        // 3. Goals Reminder setiap jam 19:00 Malam
-        $schedule->command('reminders:send goals')->dailyAt('13:00');
+        // 3. Goals Reminder setiap jam 13:00 Siang
+        $schedule->command('reminders:send goals')
+        ->dailyAt('13:00')
+        ->timezone('Asia/Jakarta');
 
-        // 4. Finance Reminder setiap jam 20:00 Malam
-        $schedule->command('reminders:send finance')->dailyAt('19:00');
+        // 4. Finance Reminder setiap jam 19:00 Malam
+        $schedule->command('reminders:send finance')
+        ->dailyAt('19:00')
+        ->timezone('Asia/Jakarta');
     }
 
     /**
