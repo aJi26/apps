@@ -115,3 +115,15 @@ Route::get('/cron/run-schedule/{token}', function ($token) {
         'message' => 'Schedule executed successfully',
     ]);
 });
+
+// Rute Khusus untuk Testing Push Notifikasi Langsung ke Browser
+Route::get('/test-push-now', function () {
+    \Illuminate\Support\Facades\Artisan::call('reminders:send test');
+    
+    return response()->make(
+        '<pre style="background:#222; color:#0f0; padding:20px; border-radius:8px;">' 
+        // Menampilkan output dari terminal Artisan langsung ke layar browser
+        . \Illuminate\Support\Facades\Artisan::output() 
+        . '</pre>'
+    );
+});

@@ -19,6 +19,9 @@ class SendDailyReminders extends Command
         $today = now();
 
         switch ($type) {
+            case 'test': // <-- TAMBAHAN BARU
+                $this->sendTestPush();
+                break;
             case 'checkin':
                 $this->sendCheckinReminders($today);
                 break;
@@ -40,6 +43,26 @@ class SendDailyReminders extends Command
         }
     }
 
+    private function sendTestPush()
+    {
+        // Ambil semua user yang punya FCM token secara paksa (tanpa filter apa pun)
+        $users = User::whereNotNull('fcm_token')->get();
+
+        if ($users->isEmpty()) {
+            $this->warn("GAGAL: Tidak ada satupun user yang memiliki FCM Token di database.");
+            return;
+        }
+
+        $this->info("Ditemukan {$users->count()} pengguna. Mengirimkan notifikasi TEST...");
+
+        foreach ($users as $user) {
+            $title = "Test Notifikasi Berhasil! 🚀";
+            $body = "Halo {$user->name}, jalur notifikasi Firebase kamu sudah bekerja 100% sempurna.";
+
+            $this->sendFcmPush($user->fcm_token, $title, $body);
+        }
+    }
+    
     private function sendCheckinReminders($today)
     {
         // Filter profile::notif_checkin dikomentari sementara agar memudahkan testing
