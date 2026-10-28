@@ -23,8 +23,8 @@ class Kernel extends ConsoleKernel
     {
         // 1. Check-in Reminder setiap jam 07:00 Pagi
         $schedule->command('reminders:send checkin')
-        ->dailyAt('07:00')
-        ->timezone('Asia/Jakarta');;
+        ->dailyAt('14:56')
+        ->timezone('Asia/Jakarta');
 
         // 2. Birthday Wishes setiap jam 00:00 Pagi
         $schedule->command('reminders:send birthday')

@@ -62,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selected = 0;
   String _token = '';
   int _cacheBuster = DateTime.now().millisecondsSinceEpoch;
+  bool _hasCheckedPotret = false; // Flag mencegah popup ganda
 
   final PageController _pageController = PageController();
 
@@ -129,6 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ApiService.request('GET', 'dashboard'),
         ApiService.request('GET', 'profile'),
         ApiService.request('GET', 'quiz/result'),
+        ApiService.request('GET', 'potret/status'), // Pengecekan potret ditambah disini
       ]);
 
       if (results[0].statusCode == 200) {
@@ -144,10 +146,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (results[2].statusCode == 200) {
         final quizData = ApiService.decode(results[2]);
-        // Ambil data hasil dari berbagai kemungkinan struktur JSON server
         final rawResult = quizData['result'] ?? quizData['data'] ?? quizData;
 
-        // Hanya timpa _mbtiData jika respon server benar-benar memiliki field 'scores'
         if (rawResult is Map<String, dynamic> && rawResult['scores'] != null) {
           _mbtiData = rawResult;
           _mbtiCode = _mbtiData?['code']?.toString() ??
@@ -159,6 +159,28 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }
       }
+
+      // 1. TAMBAHKAN PENGECEKAN STATUS POTRET DI SINI
+      if (results[3].statusCode == 200 && !_hasCheckedPotret) {
+         final potretData = ApiService.decode(results[3]);
+         _hasCheckedPotret = true; // Set flag agar tidak loop popup
+
+         // Jika statusnya belum completed, paksa buka CheckinScreen!
+         if (potretData['completed'] == false && mounted) {
+            // Gunakan postFrameCallback agar navigasi berjalan mulus setelah build selesai
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+               Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                     builder: (_) => const DailyCheckinScreen(),
+                  ),
+               ).then((_) {
+                 // Refresh dashboard setelah checkin ditutup
+                 _load(silent: true); 
+               });
+            });
+         }
+      }
+
     } catch (_) {
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -613,7 +635,7 @@ class _HomeScreenState extends State<HomeScreen> {
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
-    if (index == 0) _load();
+    if (index == 0) _load(silent: true);
   }
 
   @override
@@ -635,7 +657,7 @@ class _HomeScreenState extends State<HomeScreen> {
           controller: _pageController,
           onPageChanged: (index) {
             setState(() => _selected = index);
-            if (index == 0) _load();
+            if (index == 0) _load(silent: true);
           },
           children: pages,
         ),
