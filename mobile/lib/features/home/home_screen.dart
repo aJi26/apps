@@ -14,8 +14,8 @@ import '../notes/notes_screen.dart';
 import '../profile/profile_screen.dart';
 import '../randomizer/randomizer_screen.dart';
 import '../wishlist/wishlist_screen.dart';
+import '../photo_dump/photo_dump_screen.dart'; // <-- IMPOR HALAMAN PHOTO DUMP BARU
 
-// Widget Animasi Sentuh Interaktif
 class ScaleButton extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;
@@ -62,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selected = 0;
   String _token = '';
   int _cacheBuster = DateTime.now().millisecondsSinceEpoch;
-  bool _hasCheckedPotret = false; // Flag mencegah popup ganda
+  bool _hasCheckedPotret = false;
 
   final PageController _pageController = PageController();
 
@@ -70,7 +70,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _load();
-
     NotificationService.syncFcmTokenWithBackend();
   }
 
@@ -82,18 +81,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   (IconData, Color) _getGreetingIconInfo() {
     final hour = DateTime.now().hour;
-
     if (hour >= 5 && hour < 11) {
-      // Pagi (05:00 - 10:59): Matahari Terbit
       return (Icons.wb_twilight_rounded, const Color(0xFFFFB74D));
     } else if (hour >= 11 && hour < 15) {
-      // Siang (11:00 - 14:59): Matahari Terik
       return (Icons.wb_sunny_rounded, const Color(0xFFFFA000));
     } else if (hour >= 15 && hour < 18) {
-      // Sore (15:00 - 17:59): Senja
       return (Icons.wb_sunny_outlined, const Color(0xFFFF7043));
     } else {
-      // Malam (18:00 - 04:59): Bulan & Bintang
       return (Icons.nights_stay_rounded, const Color(0xFF7E57C2));
     }
   }
@@ -115,6 +109,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       _token = await ApiService.getToken() ?? '';
 
+      if (_token.isNotEmpty) {
+        NotificationService.syncFcmTokenWithBackend();
+      }
+
       final prefs = await SharedPreferences.getInstance();
       final localCode = prefs.getString('mbti_code');
       final localResult = prefs.getString('mbti_result');
@@ -130,7 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ApiService.request('GET', 'dashboard'),
         ApiService.request('GET', 'profile'),
         ApiService.request('GET', 'quiz/result'),
-        ApiService.request('GET', 'potret/status'), // Pengecekan potret ditambah disini
+        ApiService.request('GET', 'potret/status'),
       ]);
 
       if (results[0].statusCode == 200) {
@@ -160,27 +158,20 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
 
-      // 1. TAMBAHKAN PENGECEKAN STATUS POTRET DI SINI
       if (results[3].statusCode == 200 && !_hasCheckedPotret) {
-         final potretData = ApiService.decode(results[3]);
-         _hasCheckedPotret = true; // Set flag agar tidak loop popup
+        final potretData = ApiService.decode(results[3]);
+        _hasCheckedPotret = true;
 
-         // Jika statusnya belum completed, paksa buka CheckinScreen!
-         if (potretData['completed'] == false && mounted) {
-            // Gunakan postFrameCallback agar navigasi berjalan mulus setelah build selesai
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-               Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                     builder: (_) => const DailyCheckinScreen(),
-                  ),
-               ).then((_) {
-                 // Refresh dashboard setelah checkin ditutup
-                 _load(silent: true); 
-               });
-            });
-         }
+        if (potretData['completed'] == false && mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute<void>(
+                builder: (_) => const DailyCheckinScreen(),
+              ),
+            );
+          });
+        }
       }
-
     } catch (_) {
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -264,7 +255,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Dismiss',
-      barrierColor: Colors.black.withValues(alpha: 0.45),
+      barrierColor: Colors.black.withOpacity(0.45),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (dialogContext, anim1, anim2) {
         return Center(
@@ -314,7 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               const Text(
-                                'Hasil Refleksi MBTI',
+                                'MBTI Reflection Result',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: AppTheme.textMuted,
@@ -336,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: sageSoftColor,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: primaryColor.withValues(alpha: 0.3),
+                          color: primaryColor.withOpacity(0.3),
                         ),
                       ),
                       child: Row(
@@ -345,7 +336,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           const Text('💡 ', style: TextStyle(fontSize: 14)),
                           Expanded(
                             child: Text(
-                              'Kuesioner ini cocok untuk refleksi diri dan mengenali preferensi pribadi, bukan instrumen MBTI® resmi maupun diagnosis psikologis.',
+                              'This questionnaire is designed for self-reflection and personal preference insights, not an official MBTI® instrument or psychological diagnosis.',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: primaryColor,
@@ -358,45 +349,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 20),
                     const Text(
-                      'Rincian 4 Dimensi Preferensi',
+                      '4 Dimension Preferences Breakdown',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
                       ),
                     ),
                     const SizedBox(height: 14),
-                    _buildDimensionBar(
-                      'Extraversion (E)',
-                      scores['E'] ?? 0,
-                      'Introversion (I)',
-                      scores['I'] ?? 0,
-                      primaryColor,
-                      sageSoftColor,
-                    ),
-                    _buildDimensionBar(
-                      'Sensing (S)',
-                      scores['S'] ?? 0,
-                      'Intuition (N)',
-                      scores['N'] ?? 0,
-                      primaryColor,
-                      sageSoftColor,
-                    ),
-                    _buildDimensionBar(
-                      'Thinking (T)',
-                      scores['T'] ?? 0,
-                      'Feeling (F)',
-                      scores['F'] ?? 0,
-                      primaryColor,
-                      sageSoftColor,
-                    ),
-                    _buildDimensionBar(
-                      'Judging (J)',
-                      scores['J'] ?? 0,
-                      'Perceiving (P)',
-                      scores['P'] ?? 0,
-                      primaryColor,
-                      sageSoftColor,
-                    ),
+                    _buildDimensionBar('Extraversion (E)', scores['E'] ?? 0, 'Introversion (I)', scores['I'] ?? 0, primaryColor, sageSoftColor),
+                    _buildDimensionBar('Sensing (S)', scores['S'] ?? 0, 'Intuition (N)', scores['N'] ?? 0, primaryColor, sageSoftColor),
+                    _buildDimensionBar('Thinking (T)', scores['T'] ?? 0, 'Feeling (F)', scores['F'] ?? 0, primaryColor, sageSoftColor),
+                    _buildDimensionBar('Judging (J)', scores['J'] ?? 0, 'Perceiving (P)', scores['P'] ?? 0, primaryColor, sageSoftColor),
                     const SizedBox(height: 18),
                     SizedBox(
                       width: double.infinity,
@@ -410,7 +373,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         child: const Text(
-                          'Tutup',
+                          'Close',
                           style: TextStyle(color: Colors.white),
                         ),
                       ),
@@ -419,16 +382,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-          ),
-        );
-      },
-      transitionBuilder: (context, anim1, anim2, child) {
-        final curved = Curves.easeOutBack.transform(anim1.value);
-        return Transform.scale(
-          scale: curved.clamp(0.0, 1.0),
-          child: Opacity(
-            opacity: anim1.value,
-            child: child,
           ),
         );
       },
@@ -453,20 +406,8 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '$leftLabel ($left%)',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Text(
-                '$rightLabel ($right%)',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              Text('$leftLabel ($left%)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+              Text('$rightLabel ($right%)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
             ],
           ),
           const SizedBox(height: 5),
@@ -507,7 +448,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   shape: BoxShape.circle,
                   color: sageSoftColor,
                   border: Border.all(
-                    color: primaryColor.withValues(alpha: 0.3),
+                    color: primaryColor.withOpacity(0.3),
                     width: 2,
                   ),
                 ),
@@ -520,7 +461,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ? {'Authorization': 'Bearer $_token'}
                               : null,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const Center(
+                          errorBuilder: (_, __, ___) => const Center(
                             child: Text('🌷', style: TextStyle(fontSize: 40)),
                           ),
                         )
@@ -565,7 +506,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   child: const Text(
-                    'Lihat Profil Lengkap',
+                    'View Full Profile',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
@@ -580,50 +521,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _quickAdd() {
-    final primaryColor = AppTheme.current.primary;
-    final backgroundColor = AppTheme.current.background;
-
-    return showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: backgroundColor,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Make a little space',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              for (final item in [
-                ('Add a note', Icons.edit_note, 'Notes'),
-                ('Add a goal', Icons.flag_outlined, 'Goals'),
-                ('Add a wishlist item', Icons.card_giftcard, 'Wishlist'),
-                ('Add transaction', Icons.account_balance_wallet_outlined, 'Finance'),
-                ('Take today’s photo', Icons.camera_alt_outlined, 'Snapshot'),
-              ])
-                ListTile(
-                  leading: Icon(item.$2, color: primaryColor),
-                  title: Text(item.$1),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    if (item.$3 == 'Snapshot') {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const DailyCheckinScreen(),
-                        ),
-                      );
-                    } else {
-                      _open(item.$3);
-                    }
-                  },
-                ),
-            ],
-          ),
-        ),
+  // TOMBOL '+' SEKARANG LANGSUNG MEMBUKA HALAMAN PHOTO DUMP GALLERY & UPLOAD
+  void _quickAdd() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const PhotoDumpScreen(),
       ),
     );
   }
@@ -717,12 +619,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 50.0,
                         height: 32.0,
                         decoration: BoxDecoration(
-                          color: primaryColor.withValues(alpha: 0.18),
+                          color: primaryColor.withOpacity(0.18),
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
                     ),
-
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
@@ -751,10 +652,8 @@ class _HomeScreenState extends State<HomeScreen> {
     double currentPage,
   ) {
     final primaryColor = AppTheme.current.primary;
-    
     final double activeProgress =
         (1.0 - (currentPage - index).abs()).clamp(0.0, 1.0);
-
     final color = Color.lerp(AppTheme.textMuted, primaryColor, activeProgress)!;
 
     return Expanded(
@@ -853,7 +752,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     border: Border.all(color: Colors.white, width: 2),
                     boxShadow: [
                       BoxShadow(
-                        color: primaryColor.withValues(alpha: 0.18),
+                        color: primaryColor.withOpacity(0.18),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -868,7 +767,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ? {'Authorization': 'Bearer $_token'}
                                 : null,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const Center(
+                            errorBuilder: (_, __, ___) => const Center(
                               child: Text('🌷', style: TextStyle(fontSize: 30)),
                             ),
                           )
@@ -894,11 +793,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: sageSoftColor,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: primaryColor.withValues(alpha: 0.3),
+                    color: primaryColor.withOpacity(0.3),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: primaryColor.withValues(alpha: 0.12),
+                      color: primaryColor.withOpacity(0.12),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -997,7 +896,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 const Color(0xFFFFF3E0),
                 const Color(0xFFFB8C00),
               ),
-              // Tombol Goals diganti ke Warm Mocha / Soft Chocolate
               _shortcut(
                 Icons.flag_rounded,
                 'Goals',
@@ -1059,10 +957,10 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: BoxDecoration(
                 color: sageSoftColor,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: primaryColor.withValues(alpha: 0.2)),
+                border: Border.all(color: primaryColor.withOpacity(0.2)),
                 boxShadow: [
                   BoxShadow(
-                    color: primaryColor.withValues(alpha: 0.10),
+                    color: primaryColor.withOpacity(0.10),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -1145,7 +1043,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   border: Border.all(color: AppTheme.border),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: Colors.black.withOpacity(0.05),
                       blurRadius: 8,
                       offset: const Offset(0, 3),
                     ),
@@ -1219,7 +1117,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
-                    color: iconColor.withValues(alpha: 0.18),
+                    color: iconColor.withOpacity(0.18),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),

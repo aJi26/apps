@@ -64,7 +64,7 @@
         <!-- Notification Setup -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="her_space_channel_id_v5" />
+            android:value="her_space_channel_id_v6" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_sound"
             android:resource="@raw/herspace" />

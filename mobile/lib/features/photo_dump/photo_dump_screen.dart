@@ -1,0 +1,242 @@
+// lib/features/photo_dump/photo_dump_screen.dart
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+
+import '../../core/services/api_service.dart';
+import '../../core/theme/app_theme.dart';
+
+class PhotoDumpScreen extends StatefulWidget {
+  const PhotoDumpScreen({super.key});
+
+  @override
+  State<PhotoDumpScreen> createState() => _PhotoDumpScreenState();
+}
+
+class _PhotoDumpScreenState extends State<PhotoDumpScreen> {
+  List<dynamic> _dumps = [];
+  bool _loading = true;
+  bool _uploading = false;
+  final ImagePicker _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPhotoDumps();
+  }
+
+  Future<void> _fetchPhotoDumps() async {
+    try {
+      setState(() => _loading = true);
+      final response = await ApiService.request('GET', 'photo-dumps');
+      if (response.statusCode == 200) {
+        final data = ApiService.decode(response);
+        setState(() {
+          _dumps = data['photo_dumps'] ?? [];
+        });
+      }
+    } catch (_) {
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _pickAndUploadImage(ImageSource source) async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: source,
+        imageQuality: 85,
+      );
+
+      if (image == null) return;
+
+      setState(() => _uploading = true);
+
+      // Kirim menggunakan Multipart Request
+      final token = await ApiService.getToken();
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${ApiService.baseUrl}/photo-dumps/upload'),
+      );
+      
+      if (token != null) {
+        request.headers.addAll({'Authorization': 'Bearer $token'});
+      }
+      
+      request.files.add(await http.MultipartFile.fromPath('photo', image.path));
+      
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse); 
+
+      if (response.statusCode == 201) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Photo dump successfully uploaded!')),
+          );
+        }
+        _fetchPhotoDumps();
+      } else {
+        throw Exception('Failed to upload image.');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  void _showImageSourceDialog() {
+    final primaryColor = AppTheme.current.primary;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.current.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Create Photo Dump 📸',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: Icon(Icons.photo_library_outlined, color: primaryColor),
+                title: const Text('Import from Gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickAndUploadImage(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.camera_alt_outlined, color: primaryColor),
+                title: const Text('Take a New Photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickAndUploadImage(ImageSource.camera);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryColor = AppTheme.current.primary;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Photo Dump Gallery'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _uploading
+              ? const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 12),
+                      Text('Uploading your photo...'),
+                    ],
+                  ),
+                )
+              : _dumps.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('📷', style: TextStyle(fontSize: 48)),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'No photo dumps yet.',
+                            style: TextStyle(color: AppTheme.textMuted, fontSize: 16),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Tap the + button below to share your moments.',
+                            style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _fetchPhotoDumps,
+                      child: GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 1,
+                        ),
+                        itemCount: _dumps.length,
+                        itemBuilder: (context, index) {
+                          final item = _dumps[index];
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Image.network(
+                                  item['image_url'],
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: AppTheme.sageSoft,
+                                    child: const Center(child: Text('🖼️')),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.bottomCenter,
+                                        end: Alignment.topCenter,
+                                        colors: [
+                                          Colors.black.withOpacity(0.6),
+                                          Colors.transparent,
+                                        ],
+                                      ),
+                                    ),
+                                    child: Text(
+                                         item['date'] ?? '',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showImageSourceDialog,
+        backgroundColor: primaryColor,
+        icon: const Icon(Icons.add_a_photo, color: Colors.white),
+        label: const Text('Add Photo', style: TextStyle(color: Colors.white)),
+      ),
+    );
+  }
+}

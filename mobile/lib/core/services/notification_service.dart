@@ -103,7 +103,7 @@ class NotificationService {
     required String body,
   }) async {
     const androidDetails = AndroidNotificationDetails(
-      'her_space_channel_v5',
+      'her_space_channel_v6',
       'Her Space Notifications',
       channelDescription: 'Channel notifikasi Her Space dengan nada kustom',
       importance: Importance.max,
