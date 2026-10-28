@@ -122,3 +122,14 @@ Route::get('/cron/run-schedule/{token}', function ($token) {
         'message' => 'Schedule executed successfully',
     ]);
 });
+
+Route::get('/migrate-db-now', function () {
+    // Menjalankan perintah migrate secara paksa
+    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+
+    return response()->make(
+        '<pre style="background:#222; color:#0f0; padding:20px; border-radius:8px;">' 
+        . \Illuminate\Support\Facades\Artisan::output() 
+        . '</pre>'
+    );
+});
