@@ -42,15 +42,17 @@ class SendDailyReminders extends Command
 
     private function sendCheckinReminders($today)
     {
+        // Filter profile::notif_checkin dikomentari sementara agar memudahkan testing
         $users = User::whereNotNull('fcm_token')
-            ->whereHas('profile', function ($q) {
-                $q->where('notif_checkin', true);
-            })->whereDoesntHave('portraits', function ($q) use ($today) {
+            // ->whereHas('profile', function ($q) {
+            //     $q->where('notif_checkin', true);
+            // })
+            ->whereDoesntHave('portraits', function ($q) use ($today) {
                 $q->whereDate('portraits.created_at', $today);
             })->get();
 
         if ($users->isEmpty()) {
-            $this->warn("Tidak ada pengguna yang memenuhi kriteria (FCM Token NULL, notif matikan, atau sudah check-in).");
+            $this->warn("Tidak ada pengguna yang memenuhi kriteria (FCM Token NULL, notif dimatikan, atau sudah check-in).");
             return;
         }
 
@@ -66,7 +68,6 @@ class SendDailyReminders extends Command
 
     private function sendBirthdayWishes($today)
     {
-        // Hanya kirim ke user yang menyalakan notif_birthday = true, birth_date terisi, & ultah hari ini
         $users = User::whereNotNull('fcm_token')
             ->whereHas('profile', function ($q) use ($today) {
                 $q->where('notif_birthday', true)
@@ -125,7 +126,6 @@ class SendDailyReminders extends Command
 
     private function sendFinanceReminders($today)
     {
-        // Menyaring user yang punya token FCM & BELUM mencatat transaksi hari ini
         $users = User::whereNotNull('fcm_token')
             ->whereDoesntHave('finances', function ($q) use ($today) {
                 $q->where(function ($sub) use ($today) {
@@ -155,19 +155,35 @@ class SendDailyReminders extends Command
         return str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($data));
     }
 
-    private function getGoogleAccessToken($credentialsPath)
+    private function getCredentialsJson()
     {
-        if (!file_exists($credentialsPath)) {
-            $this->error("File JSON Service Account tidak ditemukan di: " . $credentialsPath);
+        if (env('FIREBASE_CREDENTIALS_BASE64')) {
+            return base64_decode(env('FIREBASE_CREDENTIALS_BASE64'));
+        }
+
+        $credentialsPath = storage_path('app/firebase/firebase-credentials.json');
+        if (file_exists($credentialsPath)) {
+            return file_get_contents($credentialsPath);
+        }
+
+        return null;
+    }
+
+    private function getGoogleAccessToken()
+    {
+        $jsonContent = $this->getCredentialsJson();
+
+        if (!$jsonContent) {
+            $this->error("Kredensial Firebase tidak ditemukan (Environment FIREBASE_CREDENTIALS_BASE64 maupun file JSON lokal).");
             return null;
         }
 
-        $credentials = json_decode(file_get_contents($credentialsPath), true);
+        $credentials = json_decode($jsonContent, true);
         $clientEmail = $credentials['client_email'] ?? null;
         $privateKey = $credentials['private_key'] ?? null;
 
         if (!$clientEmail || !$privateKey) {
-            $this->error("Isi file JSON Service Account tidak valid.");
+            $this->error("Isi file/kredensial JSON Service Account tidak valid.");
             return null;
         }
 
@@ -203,15 +219,14 @@ class SendDailyReminders extends Command
         }
 
         try {
-            $credentialsPath = storage_path('app/firebase/firebase-credentials.json');
-            $accessToken = $this->getGoogleAccessToken($credentialsPath);
+            $accessToken = $this->getGoogleAccessToken();
 
             if (!$accessToken) {
                 $this->error("Gagal membuat Google Access Token.");
                 return;
             }
 
-            $jsonContent = json_decode(file_get_contents($credentialsPath), true);
+            $jsonContent = json_decode($this->getCredentialsJson(), true);
             $projectId = $jsonContent['project_id'] ?? null;
 
             $payload = [
