@@ -113,6 +113,5 @@ Route::get('/cron/run-schedule/{token}', function ($token) {
     return response()->json([
         'status' => 'success',
         'message' => 'Schedule executed successfully',
-        'output' => Artisan::output()
     ]);
 });
