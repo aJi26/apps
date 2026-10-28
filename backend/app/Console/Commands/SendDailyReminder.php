@@ -19,9 +19,6 @@ class SendDailyReminders extends Command
         $today = now();
 
         switch ($type) {
-            case 'test': // <-- TAMBAHAN BARU
-                $this->sendTestPush();
-                break;
             case 'checkin':
                 $this->sendCheckinReminders($today);
                 break;
@@ -42,34 +39,14 @@ class SendDailyReminders extends Command
                 break;
         }
     }
-
-    private function sendTestPush()
-    {
-        // Ambil semua user yang punya FCM token secara paksa (tanpa filter apa pun)
-        $users = User::whereNotNull('fcm_token')->get();
-
-        if ($users->isEmpty()) {
-            $this->warn("GAGAL: Tidak ada satupun user yang memiliki FCM Token di database.");
-            return;
-        }
-
-        $this->info("Ditemukan {$users->count()} pengguna. Mengirimkan notifikasi TEST...");
-
-        foreach ($users as $user) {
-            $title = "Test Notifikasi Berhasil! 🚀";
-            $body = "Halo {$user->name}, jalur notifikasi Firebase kamu sudah bekerja 100% sempurna.";
-
-            $this->sendFcmPush($user->fcm_token, $title, $body);
-        }
-    }
     
     private function sendCheckinReminders($today)
     {
         // Filter profile::notif_checkin dikomentari sementara agar memudahkan testing
         $users = User::whereNotNull('fcm_token')
-            // ->whereHas('profile', function ($q) {
-            //     $q->where('notif_checkin', true);
-            // })
+            ->whereHas('profile', function ($q) {
+                $q->where('notif_checkin', true);
+            })
             ->whereDoesntHave('portraits', function ($q) use ($today) {
                 $q->whereDate('portraits.created_at', $today);
             })->get();
@@ -262,7 +239,7 @@ class SendDailyReminders extends Command
                     'android' => [
                         'priority' => 'HIGH',
                         'notification' => [
-                            'channel_id' => 'her_space_channel_v5',
+                            'channel_id' => 'her_space_channel_v6',
                             'sound' => 'herspace',
                             'default_sound' => false,
                             'notification_priority' => 'PRIORITY_MAX',

@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\FinanceController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\QuizController;
 use App\Http\Controllers\Api\WishlistController;
+use App\Http\Controllers\Api\PhotoDumpController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
@@ -83,6 +84,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/finance/sync-from-sheets', [FinanceController::class, 'syncFromSheets']);
     Route::post('/finance/spreadsheet-id', [FinanceController::class, 'storeSpreadsheetId']);
 
+    // Photo Dumps
+    Route::get('/photo-dumps', [PhotoDumpController::class, 'index']);
+    Route::post('/photo-dumps/upload', [PhotoDumpController::class, 'upload']);
+    Route::get('/photo-dumps/{photoDump}/image', [PhotoDumpController::class, 'getImage']);
+    Route::delete('/photo-dumps/{photoDump}', [PhotoDumpController::class, 'destroy']);
+
     // Music & Randomizer
     Route::get('/music/playlists', [MusicRandomizerController::class, 'playlists']);
     Route::get('/randomizer', [MusicRandomizerController::class, 'randomize']);
@@ -114,16 +121,4 @@ Route::get('/cron/run-schedule/{token}', function ($token) {
         'status' => 'success',
         'message' => 'Schedule executed successfully',
     ]);
-});
-
-// Rute Khusus untuk Testing Push Notifikasi Langsung ke Browser
-Route::get('/test-push-now', function () {
-    \Illuminate\Support\Facades\Artisan::call('reminders:send test');
-    
-    return response()->make(
-        '<pre style="background:#222; color:#0f0; padding:20px; border-radius:8px;">' 
-        // Menampilkan output dari terminal Artisan langsung ke layar browser
-        . \Illuminate\Support\Facades\Artisan::output() 
-        . '</pre>'
-    );
 });
