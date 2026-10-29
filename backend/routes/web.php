@@ -34,6 +34,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/daily-potret/{user}', [MonitorController::class, 'userPotret'])->name('daily-potret.show');
         Route::get('/portraits/{portrait}/image', [MonitorController::class, 'portraitImage'])->name('portraits.image');
         Route::delete('/portraits/{portrait}', [MonitorController::class, 'destroyPortrait'])->name('portraits.destroy');
+        Route::get('/photo-dumps', [MonitorController::class, 'photoDumps'])->name('photo-dumps.index');
+        Route::get('/photo-dumps/{id}/download', [MonitorController::class, 'downloadPhotoDump'])->name('photo-dumps.download');
+        Route::get('/portraits/{id}/download', [MonitorController::class, 'downloadPortrait'])->name('portraits.download');
         Route::get('/activity', [MonitorController::class, 'activity'])->name('activity');
         Route::get('/settings', [MonitorController::class, 'settings'])->name('settings');
         Route::get('/analytics', [MonitorController::class, 'analytics'])->name('analytics');

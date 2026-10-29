@@ -7,6 +7,7 @@ use App\Models\ActivityLog;
 use App\Models\DailyCheckin;
 use App\Models\Goal;
 use App\Models\Portrait;
+use App\Models\PhotoDump;
 use App\Models\Profile;
 use App\Models\QuizAttempt;
 use App\Models\User;
@@ -579,4 +580,68 @@ class MonitorController extends Controller
 
         return 'data:image/svg+xml,'.rawurlencode($svg);
     }
+
+    // --- FITUR MELIHAT GALERI PHOTO DUMP ---
+    public function photoDumps()
+    {
+        $dumps = PhotoDump::with('user')->latest()->get()->map(function($dump) {
+            return [
+                'id' => $dump->id,
+                'user_name' => $dump->user->name ?? 'Unknown',
+                
+                // PERUBAHAN: Langsung panggil path, karena isinya sudah URL Cloudinary
+                'image_url' => $dump->path, 
+                
+                'date' => $dump->created_at->format('d M Y, H:i')
+            ];
+        });
+
+        return inertia('Admin/PhotoDumps', [
+            'photoDumps' => $dumps
+        ]);
+    }
+
+    // --- FITUR DOWNLOAD ASLI PHOTO DUMP (DARI CLOUDINARY) ---
+    public function downloadPhotoDump($id)
+    {
+        $dump = PhotoDump::findOrFail($id);
+        $cloudinaryUrl = $dump->path; 
+        
+        // Menjemput gambar dari Cloudinary menggunakan HTTP Laravel
+        $response = \Illuminate\Support\Facades\Http::get($cloudinaryUrl);
+
+        if ($response->failed()) {
+            abort(404, 'Gagal mengambil gambar dari Cloudinary.');
+        }
+
+        $fileName = $dump->original_name ?? 'photodump-' . $dump->id . '.jpg';
+
+        // Memaksa browser mendownload gambar tersebut
+        return response($response->body(), 200, [
+            'Content-Type' => $response->header('Content-Type') ?? 'image/jpeg',
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+        ]);
+    }
+
+    // --- FITUR DOWNLOAD ASLI DAILY POTRET (DARI CLOUDINARY) ---
+    public function downloadPortrait($id)
+    {
+        // Sesuaikan Model jika nama Model potretmu berbeda (misal: \App\Models\DailyPotret)
+        $portrait = \App\Models\Portrait::findOrFail($id); 
+        $cloudinaryUrl = $portrait->path;
+        
+        $response = \Illuminate\Support\Facades\Http::get($cloudinaryUrl);
+
+        if ($response->failed()) {
+            abort(404, 'Gagal mengambil gambar dari Cloudinary.');
+        }
+
+        $fileName = $portrait->original_name ?? 'potret-' . $portrait->id . '.jpg';
+
+        return response($response->body(), 200, [
+            'Content-Type' => $response->header('Content-Type') ?? 'image/jpeg',
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+        ]);
+    }
 }
+
