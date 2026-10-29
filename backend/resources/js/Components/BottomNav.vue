@@ -15,7 +15,7 @@ const isCurrent = (path) => {
 </script>
 
 <template>
-  <div class="border-t border-[#EAE7E1] bg-white/95 backdrop-blur-md px-4 py-2.5 flex justify-between items-center text-[10px] font-medium z-30 shadow-[0_-4px_12px_rgba(44,62,53,0.03)]">
+  <div class="sticky bottom-0 left-0 right-0 mt-auto border-t border-[#EAE7E1] bg-white/95 backdrop-blur-md px-4 py-2.5 flex justify-between items-center text-[10px] font-medium z-30 shadow-[0_-4px_12px_rgba(44,62,53,0.03)]">
     <!-- 1. Overview -->
     <Link 
       href="/admin/dashboard" 
