@@ -639,20 +639,26 @@ class MonitorController extends Controller
     public function downloadPhotoDump($id)
     {
         $dump = PhotoDump::findOrFail($id);
-        $cloudinaryUrl = $dump->path; 
         
-        // Menjemput gambar dari Cloudinary menggunakan HTTP Laravel
-        $response = \Illuminate\Support\Facades\Http::get($cloudinaryUrl);
-
-        if ($response->failed()) {
-            abort(404, 'Gagal mengambil gambar dari Cloudinary.');
+        // Cek apakah path-nya berupa URL eksternal (seperti http/https lama) atau file lokal
+        if (str_starts_with($dump->path, 'http://') || str_starts_with($dump->path, 'https://')) {
+            $response = \Illuminate\Support\Facades\Http::get($dump->path);
+            if ($response->failed()) {
+                abort(404, 'Gagal mengambil gambar.');
+            }
+            $fileContent = $response->body();
+        } else {
+            // Ambil dari disk local internal
+            if (!Storage::disk('local')->exists($dump->path)) {
+                abort(404, 'File gambar tidak ditemukan di server.');
+            }
+            $fileContent = Storage::disk('local')->get($dump->path);
         }
 
         $fileName = $dump->original_name ?? 'photodump-' . $dump->id . '.jpg';
 
-        // Memaksa browser mendownload gambar tersebut
-        return response($response->body(), 200, [
-            'Content-Type' => $response->header('Content-Type') ?? 'image/jpeg',
+        return response($fileContent, 200, [
+            'Content-Type' => 'image/jpeg',
             'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
         ]);
     }

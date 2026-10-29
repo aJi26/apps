@@ -80,7 +80,38 @@ const deletePhoto = (photoId) => {
   }
 };
 
-// State untuk Modal Detail Notes & Wishlist
+// Dump modal state
+const isDumpModalOpen = ref(false);
+const selectedDumpIndex = ref(0);
+
+const openDumpModal = (index) => {
+  selectedDumpIndex.value = index;
+  isDumpModalOpen.value = true;
+};
+
+const nextDump = () => {
+  selectedDumpIndex.value = selectedDumpIndex.value < props.userPhotoDumps.length - 1 ? selectedDumpIndex.value + 1 : 0;
+};
+
+const prevDump = () => {
+  selectedDumpIndex.value = selectedDumpIndex.value > 0 ? selectedDumpIndex.value - 1 : props.userPhotoDumps.length - 1;
+};
+
+const deleteDump = (photoId) => {
+  if (confirm('Apakah Anda yakin ingin menghapus foto photo dump ini?')) {
+    router.delete(`/admin/photo-dumps/${photoId}`, {
+      preserveScroll: true,
+      onSuccess: () => {
+        isDumpModalOpen.value = false;
+        if (selectedDumpIndex.value > 0) {
+          selectedDumpIndex.value--;
+        }
+      },
+    });
+  }
+};
+
+// State untuk Modal Detail Notes, Wishlist & Activity
 const selectedNote = ref(null);
 const selectedWishlist = ref(null);
 const selectedActivity = ref(null);
@@ -96,7 +127,7 @@ const selectedActivity = ref(null);
         
         <!-- Header Nav -->
         <div class="flex items-center justify-between">
-          <button @click="goBack" type="button" class="text-[#2C3E35] hover:opacity-70 transition p-1 -ml-1">
+          <button @click="goBack" type="button" class="text-[#2C3E35] hover:opacity-70 transition p-1 -ml-1 cursor-pointer">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
           </button>
           <h1 class="text-lg font-serif font-bold text-[#2C3E35]">User Detail</h1>
@@ -205,17 +236,12 @@ const selectedActivity = ref(null);
 
           <div v-if="userPhotoDumps.length > 0" class="grid grid-cols-2 gap-3">
             <div 
-              v-for="item in userPhotoDumps" 
+              v-for="(item, index) in userPhotoDumps" 
               :key="item.id" 
-              class="group relative aspect-square rounded-2xl overflow-hidden border border-[#EAE7E1] bg-white shadow-xs"
+              @click="openDumpModal(index)"
+              class="group relative aspect-square rounded-2xl overflow-hidden border border-[#EAE7E1] bg-white shadow-xs cursor-pointer hover:shadow-md transition"
             >
               <img :src="item.image_url" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" alt="Photo Dump">
-
-              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2">
-                <a :href="item.download_url" class="px-3 py-1.5 bg-white text-gray-900 rounded-xl text-[11px] font-bold shadow hover:bg-gray-100">
-                  Download Asli
-                </a>
-              </div>
 
               <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent text-white text-[10px] p-2 text-center font-medium pointer-events-none">
                 {{ item.date }}
@@ -226,7 +252,7 @@ const selectedActivity = ref(null);
           <EmptyState v-else title="No Photo Dumps" description="User hasn't uploaded any photo dumps yet." />
         </div>
 
-        <!-- TAB 4: NOTES (DETAIL BISA DILIHAT ADMIN) -->
+        <!-- TAB 4: NOTES -->
         <div v-else-if="activeTab === 'Notes'" class="space-y-3">
           <h3 class="text-xs font-bold text-[#2C3E35] font-serif uppercase tracking-wider mb-2">User Notes</h3>
           <div v-if="notes.length > 0" class="space-y-3">
@@ -289,7 +315,7 @@ const selectedActivity = ref(null);
           <EmptyState v-else title="No Goals Found" description="No goals matching the selected filter." />
         </div>
 
-        <!-- TAB 6: WISHLIST (DETAIL BISA DILIHAT ADMIN) -->
+        <!-- TAB 6: WISHLIST -->
         <div v-else-if="activeTab === 'Wishlist'" class="space-y-3">
           <h3 class="text-xs font-bold text-[#2C3E35] font-serif uppercase tracking-wider mb-2">User Wishlist</h3>
           <div v-if="wishlists.length > 0" class="space-y-3">
@@ -373,6 +399,18 @@ const selectedActivity = ref(null);
       @prev="prevPhoto"
       @next="nextPhoto"
       @delete="deletePhoto"
+    />
+
+    <!-- Modal Detail Foto Dump -->
+    <PotretDetailModal
+      :is-open="isDumpModalOpen"
+      :photo="userPhotoDumps[selectedDumpIndex]"
+      :photos="userPhotoDumps"
+      :current-index="selectedDumpIndex"
+      @close="isDumpModalOpen = false"
+      @prev="prevDump"
+      @next="nextDump"
+      @delete="deleteDump"
     />
 
     <!-- Modal Detail Note -->
