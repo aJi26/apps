@@ -224,7 +224,7 @@ const selectedActivity = ref(null);
         </div>
 
         <!-- TAB: PHOTO DUMP GALLERY -->
-        <div v-else-if="activeTab === 'Dump'" class="space-y-4">
+        <div v-else-if="activeTab === ' Photo Dump'" class="space-y-4">
           <div class="flex justify-between items-center">
             <h3 class="text-xs font-bold text-[#2C3E35] font-serif uppercase tracking-wider">Photo Dump Gallery</h3>
             <span class="text-xs text-[#8A9992]">{{ userPhotoDumps.length }} photos</span>
