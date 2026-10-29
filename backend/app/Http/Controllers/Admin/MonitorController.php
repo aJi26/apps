@@ -184,14 +184,14 @@ class MonitorController extends Controller
 
         // Ambil data Photo Dumps milik user ini
         $photoDumps = PhotoDump::where('user_id', $user->id)
-            ->latest()
-            ->get()
-            ->map(fn (PhotoDump $dump) => [
-                'id' => $dump->id,
-                'date' => $dump->created_at->format('d M Y'),
-                'image_url' => $dump->path,
-                'download_url' => route('admin.photo-dumps.download', $dump->id),
-            ]);
+         ->latest()
+         ->get()
+         ->map(fn (PhotoDump $dump) => [
+             'id' => $dump->id,
+             'date' => $dump->created_at->format('d M Y'),
+             'image_url' => str_starts_with($dump->path, 'http') ? $dump->path : route('admin.photo-dumps.image', $dump),
+             'download_url' => route('admin.photo-dumps.download', $dump->id),
+         ]);
 
         $todayCheckin = $user->dailyCheckins()
             ->whereDate('checkin_date', now()->toDateString())
@@ -516,6 +516,19 @@ class MonitorController extends Controller
         abort(404, 'Gambar tidak ditemukan');
     }
 
+    public function photoDumpImage(PhotoDump $photoDump)
+    {
+        if (str_starts_with($photoDump->path, 'http://') || str_starts_with($photoDump->path, 'https://')) {
+            return redirect($photoDump->path);
+        }
+
+        if (Storage::disk('local')->exists($photoDump->path)) {
+            return Storage::disk('local')->response($photoDump->path);
+        }
+
+        abort(404, 'Gambar photo dump tidak ditemukan');
+    }
+
     public function destroyPortrait(Portrait $portrait)
     {
         // Hapus file fisik dari storage jika ada
@@ -612,10 +625,7 @@ class MonitorController extends Controller
             return [
                 'id' => $dump->id,
                 'user_name' => $dump->user->name ?? 'Unknown',
-                
-                // PERUBAHAN: Langsung panggil path, karena isinya sudah URL Cloudinary
-                'image_url' => $dump->path, 
-                
+                'image_url' => str_starts_with($dump->path, 'http') ? $dump->path : route('admin.photo-dumps.image', $dump),
                 'date' => $dump->created_at->format('d M Y, H:i')
             ];
         });

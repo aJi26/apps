@@ -22,7 +22,9 @@ class PhotoDumpController extends Controller
                     'caption' => $dump->caption,
                     'date' => $dump->created_at->format('d M Y'),
                     'time' => $dump->created_at->format('H:i'),
-                    'image_url' => $dump->path, // Langsung gunakan path URL Cloudinary
+                    'image_url' => str_starts_with($dump->path, 'http') 
+                        ? $dump->path 
+                        : url("/api/photo-dumps/{$dump->id}/image"),
                 ];
             });
 
@@ -39,61 +41,68 @@ class PhotoDumpController extends Controller
         $photo = $validated['photo'];
         $user = $request->user();
 
-        // PILIHAN 1: Menggunakan Helper Cloudinary bawaan package (paling sering berhasil)
-        $uploadedFileUrl = cloudinary()->upload($photo->getRealPath(), [
-            'folder' => 'photo_dumps'
-        ])->getSecureUrl();
+        // 1. Simpan ke storage lokal (mengikuti pola DailyPotret)
+        $path = $photo->store('photo_dumps', 'local');
 
-        /* 
-           CATATAN: Jika helper di atas masih error, kamu bisa aktifkan PILIHAN 2 
-           dengan memanfaatkan Laravel Storage standar jika disk Cloudinary sudah terdaftar di filesystems.php:
-           
-           $path = $photo->store('photo_dumps', 'cloudinary');
-           $uploadedFileUrl = Storage::disk('cloudinary')->url($path);
-        */
-
-        if (!$uploadedFileUrl) {
-            throw new RuntimeException('Gagal mengunggah foto ke Cloudinary.');
+        if (! is_string($path) || $path === '') {
+            throw new RuntimeException('Gagal menyimpan foto ke storage.');
         }
 
-        // Simpan ke Database Photo Dump
-        $dump = PhotoDump::create([
-            'user_id' => $user->id,
-            'path' => $uploadedFileUrl,
-            'caption' => $request->input('caption'),
-            'original_name' => $photo->getClientOriginalName(),
-        ]);
+        try {
+            // 2. Simpan ke database PhotoDump
+            $dump = PhotoDump::create([
+                'user_id' => $user->id,
+                'path' => $path,
+                'caption' => $request->input('caption'),
+                'original_name' => $photo->getClientOriginalName(),
+            ]);
 
-        // Rekam Aktivitas ke Activity Log
-        ActivityLog::create([
-            'user_id' => $user->id,
-            'type' => 'Photo Dump',
-            'action' => 'Mengunggah foto baru ke Photo Dump',
-        ]);
+            // 3. Catat ke Activity Log agar otomatis masuk ke riwayat aktivitas admin
+            ActivityLog::create([
+                'user_id' => $user->id,
+                'action' => 'Mengunggah foto baru ke Photo Dump',
+                'type' => 'Photo Dump',
+                'subject_type' => PhotoDump::class,
+                'subject_id' => $dump->id,
+            ]);
 
-        return response()->json([
-            'message' => 'Photo dump berhasil diunggah.',
-            'photo_dump' => [
-                'id' => $dump->id,
-                'caption' => $dump->caption,
-                'image_url' => $dump->path,
-            ],
-        ], 201);
+            return response()->json([
+                'message' => 'Photo dump berhasil diunggah.',
+                'photo_dump' => [
+                    'id' => $dump->id,
+                    'caption' => $dump->caption,
+                    'image_url' => url("/api/photo-dumps/{$dump->id}/image"),
+                ],
+            ], 201);
+
+        } catch (\Throwable $e) {
+            // Jika database gagal, hapus file fisik yang terlanjur tersimpan
+            Storage::disk('local')->delete($path);
+            throw $e;
+        }
     }
 
     public function getImage(Request $request, PhotoDump $photoDump)
     {
         abort_unless($photoDump->user_id === $request->user()->id, 403);
 
-        // Karena sudah Cloudinary, langsung redirect ke URL-nya
-        return redirect($photoDump->path);
+        if (str_starts_with($photoDump->path, 'http://') || str_starts_with($photoDump->path, 'https://')) {
+            return redirect($photoDump->path);
+        }
+
+        abort_unless(Storage::disk('local')->exists($photoDump->path), 404);
+
+        return Storage::disk('local')->response($photoDump->path);
     }
 
     public function destroy(Request $request, PhotoDump $photoDump)
     {
         abort_unless($photoDump->user_id === $request->user()->id, 403);
 
-        // Hapus data dari database (file di Cloudinary bisa dikelola via dashboard Cloudinary)
+        if (Storage::disk('local')->exists($photoDump->path)) {
+            Storage::disk('local')->delete($photoDump->path);
+        }
+
         $photoDump->delete();
 
         return response()->json(['message' => 'Photo dump berhasil dihapus.']);
