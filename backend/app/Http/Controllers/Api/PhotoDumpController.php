@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\PhotoDump;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -39,9 +40,8 @@ class PhotoDumpController extends Controller
         $photo = $validated['photo'];
         $user = $request->user();
 
-        // 1. UPLOAD KE CLOUDINARY (Menggunakan Cloudinary SDK / Package Laravel)
-        // Pastikan konfigurasi cloudinary sudah terpasang di projectmu
-        $uploadedFileUrl = cloudinary()->upload($photo->getRealPath(), [
+        // UPLOAD MENGGUNAKAN CLOUDINARY FACADE YANG BENAR
+        $uploadedFileUrl = Cloudinary::upload($photo->getRealPath(), [
             'folder' => 'photo_dumps'
         ])->getSecureUrl();
 
@@ -49,15 +49,15 @@ class PhotoDumpController extends Controller
             throw new RuntimeException('Gagal mengunggah foto ke Cloudinary.');
         }
 
-        // 2. SIMPAN KE DATABASE PHOTO DUMP
+        // SIMPAN KE DATABASE PHOTO DUMP
         $dump = PhotoDump::create([
             'user_id' => $user->id,
-            'path' => $uploadedFileUrl, // Menyimpan URL Cloudinary
+            'path' => $uploadedFileUrl,
             'caption' => $request->input('caption'),
             'original_name' => $photo->getClientOriginalName(),
         ]);
 
-        // 3. REKAM AKTIVITAS OTOMATIS KE ACTIVITY LOG
+        // REKAM AKTIVITAS KE ACTIVITY LOG
         ActivityLog::create([
             'user_id' => $user->id,
             'type' => 'Photo Dump',
