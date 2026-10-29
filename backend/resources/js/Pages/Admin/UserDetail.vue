@@ -12,13 +12,14 @@ const props = defineProps({
   goals: { type: Array, default: () => [] },
   quizzes: { type: Array, default: () => [] },
   userPotrets: { type: Array, default: () => [] },
+  userPhotoDumps: { type: Array, default: () => [] },
   activityHistory: { type: Array, default: () => [] },
 });
 
 const goBack = () => router.get('/admin/users');
 
 const activeTab = ref('Overview');
-const tabs = ['Overview', 'Potret', 'Goals', 'Quiz', 'Activity'];
+const tabs = ['Overview', 'Potret', 'Photo Dump', 'Goals', 'Quiz', 'Activity'];
 
 // Filter Bulan Potret
 const selectedMonth = ref('All');
@@ -220,6 +221,37 @@ const selectedActivity = ref(null);
           </div>
 
           <EmptyState v-else title="No Potret Photos" description="User hasn't uploaded any daily portraits yet." />
+        </div>
+
+        <!-- TAB: PHOTO DUMP GALLERY -->
+        <div v-else-if="activeTab === 'Photo Dump'" class="space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="text-xs font-bold text-[#2C3E35] font-serif uppercase tracking-wider">Photo Dump Gallery</h3>
+            <span class="text-xs text-[#8A9992]">{{ userPhotoDumps.length }} photos</span>
+          </div>
+
+          <div v-if="userPhotoDumps.length > 0" class="grid grid-cols-2 gap-3">
+            <div 
+              v-for="item in userPhotoDumps" 
+              :key="item.id" 
+              class="group relative aspect-square rounded-2xl overflow-hidden border border-[#EAE7E1] bg-white shadow-xs"
+            >
+              <img :src="item.image_url" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" alt="Photo Dump">
+
+              <!-- Tombol Download Asli di atas gambar / hover -->
+              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2">
+                <a :href="item.download_url" class="px-3 py-1.5 bg-white text-gray-900 rounded-xl text-[11px] font-bold shadow hover:bg-gray-100">
+                  Download Asli
+                </a>
+              </div>
+
+              <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent text-white text-[10px] p-2 text-center font-medium pointer-events-none">
+                {{ item.date }}
+              </div>
+            </div>
+          </div>
+
+          <EmptyState v-else title="No Photo Dumps" description="User hasn't uploaded any photo dumps yet." />
         </div>
 
         <!-- TAB 3: GOALS -->

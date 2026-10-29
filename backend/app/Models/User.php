@@ -80,6 +80,11 @@ class User extends Authenticatable
         return $this->hasMany(ActivityLog::class);
     }
 
+    public function photoDumps(): HasMany
+    { 
+        return $this->hasMany(PhotoDump::class); 
+    }
+
     public function quizAttempts(): HasMany
     {
         return $this->hasMany(QuizAttempt::class);

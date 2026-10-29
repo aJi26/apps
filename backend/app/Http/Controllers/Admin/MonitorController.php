@@ -181,6 +181,17 @@ class MonitorController extends Controller
             'activityLogs' => fn ($query) => $query->latest()->take(30),
         ]);
 
+        // Ambil data Photo Dumps milik user ini
+        $photoDumps = PhotoDump::where('user_id', $user->id)
+            ->latest()
+            ->get()
+            ->map(fn (PhotoDump $dump) => [
+                'id' => $dump->id,
+                'date' => $dump->created_at->format('d M Y'),
+                'image_url' => $dump->path, // Langsung URL Cloudinary
+                'download_url' => route('admin.photo-dumps.download', $dump->id),
+            ]);
+
         $todayCheckin = $user->dailyCheckins()
             ->whereDate('checkin_date', now()->toDateString())
             ->whereHas('portrait')
@@ -218,34 +229,17 @@ class MonitorController extends Controller
                 'stats' => [
                     'checkIns' => $user->dailyCheckins()->count(),
                     'goals' => $user->goals()->count(),
+                    'photoDumps' => $user->photoDumps()->count(), // <-- Tambahan statistik opsional
                 ],
             ],
             'userPotrets' => $portraits,
+            'userPhotoDumps' => $photoDumps, // <-- KIRIM DATA PHOTO DUMP KE VUE
             'goals' => $user->goals->map(function (Goal $goal) {
-                $val = $goal->progress ?? $goal->description;
-                preg_match('/\d+/', (string)$val, $matches);
-                $percent = isset($matches[0]) ? (int)$matches[0] : ($goal->status === 'completed' ? 100 : 50);
-                $percent = min(100, max(0, $percent));
-
-                return [
-                    'id' => $goal->id,
-                    'title' => $goal->title,
-                    'category' => 'Goal',
-                    'target_date' => $goal->target_date ? 'Target: '.$goal->target_date->format('d M Y') : 'Target: Not set',
-                    'status' => ucfirst($goal->status),
-                    'progress' => $percent . '%',
-                    'progress_num' => $percent,
-                ];
+                // ... (biarkan kode goal yang sudah ada)
             })->values(),
-            'quizzes' => $user->quizAttempts
-                ->filter(fn ($attempt) => $attempt->quiz !== null)
-                ->map(fn ($attempt) => [
-                    'id' => $attempt->id,
-                    'title' => $attempt->quiz->title ?? 'Personality Quiz',
-                    'date' => ($attempt->completed_at ?? $attempt->started_at)->format('d M Y'),
-                    'score' => $attempt->score === null ? 'Completed' : $attempt->score.'%',
-                    'status' => $attempt->completed_at ? 'Completed' : 'In Progress',
-                ])->values(),
+            'quizzes' => $user->quizAttempts->filter(fn ($attempt) => $attempt->quiz !== null)->map(fn ($attempt) => [
+                // ... (biarkan kode quiz yang sudah ada)
+            ])->values(),
             'activityHistory' => $user->activityLogs->map(fn ($act) => [
                 'id' => $act->id,
                 'action' => $act->action,
