@@ -40,16 +40,24 @@ class PhotoDumpController extends Controller
         $photo = $validated['photo'];
         $user = $request->user();
 
-        // UPLOAD MENGGUNAKAN CLOUDINARY FACADE YANG BENAR
-        $uploadedFileUrl = Cloudinary::upload($photo->getRealPath(), [
+        // PILIHAN 1: Menggunakan Helper Cloudinary bawaan package (paling sering berhasil)
+        $uploadedFileUrl = cloudinary()->upload($photo->getRealPath(), [
             'folder' => 'photo_dumps'
         ])->getSecureUrl();
+
+        /* 
+           CATATAN: Jika helper di atas masih error, kamu bisa aktifkan PILIHAN 2 
+           dengan memanfaatkan Laravel Storage standar jika disk Cloudinary sudah terdaftar di filesystems.php:
+           
+           $path = $photo->store('photo_dumps', 'cloudinary');
+           $uploadedFileUrl = Storage::disk('cloudinary')->url($path);
+        */
 
         if (!$uploadedFileUrl) {
             throw new RuntimeException('Gagal mengunggah foto ke Cloudinary.');
         }
 
-        // SIMPAN KE DATABASE PHOTO DUMP
+        // Simpan ke Database Photo Dump
         $dump = PhotoDump::create([
             'user_id' => $user->id,
             'path' => $uploadedFileUrl,
@@ -57,7 +65,7 @@ class PhotoDumpController extends Controller
             'original_name' => $photo->getClientOriginalName(),
         ]);
 
-        // REKAM AKTIVITAS KE ACTIVITY LOG
+        // Rekam Aktivitas ke Activity Log
         ActivityLog::create([
             'user_id' => $user->id,
             'type' => 'Photo Dump',
