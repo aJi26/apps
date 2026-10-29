@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\PhotoDump;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -21,9 +22,7 @@ class PhotoDumpController extends Controller
                     'caption' => $dump->caption,
                     'date' => $dump->created_at->format('d M Y'),
                     'time' => $dump->created_at->format('H:i'),
-                    'image_url' => str_starts_with($dump->path, 'http') 
-                        ? $dump->path 
-                        : url("/api/photo-dumps/{$dump->id}/image"),
+                    'image_url' => $dump->path, // Langsung gunakan path URL Cloudinary
                 ];
             });
 
@@ -38,17 +37,31 @@ class PhotoDumpController extends Controller
         ]);
 
         $photo = $validated['photo'];
-        $path = $photo->store('photo_dumps', 'local');
+        $user = $request->user();
 
-        if (!$path) {
-            throw new RuntimeException('Gagal menyimpan foto ke storage.');
+        // 1. UPLOAD KE CLOUDINARY (Menggunakan Cloudinary SDK / Package Laravel)
+        // Pastikan konfigurasi cloudinary sudah terpasang di projectmu
+        $uploadedFileUrl = cloudinary()->upload($photo->getRealPath(), [
+            'folder' => 'photo_dumps'
+        ])->getSecureUrl();
+
+        if (!$uploadedFileUrl) {
+            throw new RuntimeException('Gagal mengunggah foto ke Cloudinary.');
         }
 
+        // 2. SIMPAN KE DATABASE PHOTO DUMP
         $dump = PhotoDump::create([
-            'user_id' => $request->user()->id,
-            'path' => $path,
+            'user_id' => $user->id,
+            'path' => $uploadedFileUrl, // Menyimpan URL Cloudinary
             'caption' => $request->input('caption'),
             'original_name' => $photo->getClientOriginalName(),
+        ]);
+
+        // 3. REKAM AKTIVITAS OTOMATIS KE ACTIVITY LOG
+        ActivityLog::create([
+            'user_id' => $user->id,
+            'type' => 'Photo Dump',
+            'action' => 'Mengunggah foto baru ke Photo Dump',
         ]);
 
         return response()->json([
@@ -56,7 +69,7 @@ class PhotoDumpController extends Controller
             'photo_dump' => [
                 'id' => $dump->id,
                 'caption' => $dump->caption,
-                'image_url' => url("/api/photo-dumps/{$dump->id}/image"),
+                'image_url' => $dump->path,
             ],
         ], 201);
     }
@@ -65,23 +78,15 @@ class PhotoDumpController extends Controller
     {
         abort_unless($photoDump->user_id === $request->user()->id, 403);
 
-        if (str_starts_with($photoDump->path, 'http://') || str_starts_with($photoDump->path, 'https://')) {
-            return redirect($photoDump->path);
-        }
-
-        abort_unless(Storage::disk('local')->exists($photoDump->path), 404);
-
-        return Storage::disk('local')->response($photoDump->path);
+        // Karena sudah Cloudinary, langsung redirect ke URL-nya
+        return redirect($photoDump->path);
     }
 
     public function destroy(Request $request, PhotoDump $photoDump)
     {
         abort_unless($photoDump->user_id === $request->user()->id, 403);
 
-        if (Storage::disk('local')->exists($photoDump->path)) {
-            Storage::disk('local')->delete($photoDump->path);
-        }
-
+        // Hapus data dari database (file di Cloudinary bisa dikelola via dashboard Cloudinary)
         $photoDump->delete();
 
         return response()->json(['message' => 'Photo dump berhasil dihapus.']);

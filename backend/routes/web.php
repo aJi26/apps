@@ -37,6 +37,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/photo-dumps', [MonitorController::class, 'photoDumps'])->name('photo-dumps.index');
         Route::get('/photo-dumps/{id}/download', [MonitorController::class, 'downloadPhotoDump'])->name('photo-dumps.download');
         Route::get('/portraits/{id}/download', [MonitorController::class, 'downloadPortrait'])->name('portraits.download');
+        Route::delete('/photo-dumps/{photoDump}', [MonitorController::class, 'destroyPhotoDump'])->name('photo-dumps.destroy');
         Route::get('/activity', [MonitorController::class, 'activity'])->name('activity');
         Route::get('/settings', [MonitorController::class, 'settings'])->name('settings');
         Route::get('/analytics', [MonitorController::class, 'analytics'])->name('analytics');

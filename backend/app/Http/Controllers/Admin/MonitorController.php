@@ -637,5 +637,13 @@ class MonitorController extends Controller
             'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
         ]);
     }
+
+    // Di MonitorController.php
+    public function destroyPhotoDump(PhotoDump $photoDump)
+    {
+        // Hapus data dari database (Cloudinary otomatis aman karena URL-nya terhapus dari DB)
+        $photoDump->delete();
+        return back()->with('success', 'Photo dump berhasil dihapus oleh admin.');
+    }
 }
 
