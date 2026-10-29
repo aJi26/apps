@@ -177,7 +177,8 @@ class MonitorController extends Controller
             'profile',
             'goals' => fn ($query) => $query->latest(),
             'portraits.checkin',
-            'quizAttempts' => fn ($query) => $query->with('quiz')->latest(),
+            'notes' => fn ($query) => $query->latest(),
+            'wishlists' => fn ($query) => $query->latest(),
             'activityLogs' => fn ($query) => $query->latest()->take(30),
         ]);
 
@@ -188,7 +189,7 @@ class MonitorController extends Controller
             ->map(fn (PhotoDump $dump) => [
                 'id' => $dump->id,
                 'date' => $dump->created_at->format('d M Y'),
-                'image_url' => $dump->path, // Langsung URL Cloudinary
+                'image_url' => $dump->path,
                 'download_url' => route('admin.photo-dumps.download', $dump->id),
             ]);
 
@@ -229,21 +230,50 @@ class MonitorController extends Controller
                 'stats' => [
                     'checkIns' => $user->dailyCheckins()->count(),
                     'goals' => $user->goals()->count(),
-                    'photoDumps' => $user->photoDumps()->count(), // <-- Tambahan statistik opsional
+                    'notes' => $user->notes()->count(),
+                    'wishlists' => $user->wishlists()->count(),
                 ],
             ],
             'userPotrets' => $portraits,
-            'userPhotoDumps' => $photoDumps, // <-- KIRIM DATA PHOTO DUMP KE VUE
+            'userPhotoDumps' => $photoDumps,
             'goals' => $user->goals->map(function (Goal $goal) {
-                // ... (biarkan kode goal yang sudah ada)
+                $val = $goal->description ?? '';
+                preg_match('/\d+/', (string)$val, $matches);
+                $percent = isset($matches[0]) ? (int)$matches[0] : (strtolower($goal->status) === 'completed' ? 100 : 50);
+                $percent = min(100, max(0, $percent));
+
+                return [
+                    'id' => $goal->id,
+                    'title' => $goal->title,
+                    'description' => $goal->description,
+                    'category' => 'Goal',
+                    'target_date' => $goal->target_date ? 'Target: '.$goal->target_date->format('d M Y') : 'Target: Not set',
+                    'status' => ucfirst($goal->status ?? 'Active'),
+                    'progress' => $percent . '%',
+                    'progress_num' => $percent,
+                ];
             })->values(),
-            'quizzes' => $user->quizAttempts->filter(fn ($attempt) => $attempt->quiz !== null)->map(fn ($attempt) => [
-                // ... (biarkan kode quiz yang sudah ada)
+            'notes' => $user->notes->map(fn ($note) => [
+                'id' => $note->id,
+                'title' => $note->title,
+                'content' => $note->content,
+                'date' => $note->created_at->format('d M Y • H:i'),
+            ])->values(),
+            'wishlists' => $user->wishlists->map(fn ($wishlist) => [
+                'id' => $wishlist->id,
+                'title' => $wishlist->title,
+                'category' => $wishlist->category,
+                'description' => $wishlist->description,
+                'price' => $wishlist->price,
+                'status' => $wishlist->status,
+                'url' => $wishlist->url,
+                'image_url' => $wishlist->image_url,
+                'date' => $wishlist->created_at->format('d M Y'),
             ])->values(),
             'activityHistory' => $user->activityLogs->map(fn ($act) => [
                 'id' => $act->id,
                 'action' => $act->action,
-                'type' => $act->type ?? 'Check-in',
+                'type' => $act->type ?? 'Other',
                 'details' => $act->details ?? $act->action,
                 'date' => $act->created_at->format('d M Y • H:i'),
                 'time' => $act->created_at->diffForHumans(),

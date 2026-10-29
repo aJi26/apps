@@ -5,12 +5,12 @@ import BottomNav from '@/Components/BottomNav.vue';
 import PotretDetailModal from '@/Components/PotretDetailModal.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 
-
 const props = defineProps({
   userId: { type: [String, Number], required: true },
   user: { type: Object, required: true },
   goals: { type: Array, default: () => [] },
-  quizzes: { type: Array, default: () => [] },
+  notes: { type: Array, default: () => [] },
+  wishlists: { type: Array, default: () => [] },
   userPotrets: { type: Array, default: () => [] },
   userPhotoDumps: { type: Array, default: () => [] },
   activityHistory: { type: Array, default: () => [] },
@@ -19,7 +19,7 @@ const props = defineProps({
 const goBack = () => router.get('/admin/users');
 
 const activeTab = ref('Overview');
-const tabs = ['Overview', 'Potret', 'Photo Dump', 'Goals', 'Quiz', 'Activity'];
+const tabs = ['Overview', 'Potret', 'Dump', 'Notes', 'Goals', 'Wishlist', 'Activity'];
 
 // Filter Bulan Potret
 const selectedMonth = ref('All');
@@ -66,7 +66,6 @@ const prevPhoto = () => {
   selectedPhotoIndex.value = selectedPhotoIndex.value > 0 ? selectedPhotoIndex.value - 1 : filteredPotrets.value.length - 1;
 };
 
-// Fungsi hapus foto potret
 const deletePhoto = (photoId) => {
   if (confirm('Apakah Anda yakin ingin menghapus foto potret ini?')) {
     router.delete(`/admin/portraits/${photoId}`, {
@@ -81,6 +80,9 @@ const deletePhoto = (photoId) => {
   }
 };
 
+// State untuk Modal Detail Notes & Wishlist
+const selectedNote = ref(null);
+const selectedWishlist = ref(null);
 const selectedActivity = ref(null);
 </script>
 
@@ -122,7 +124,7 @@ const selectedActivity = ref(null);
             :key="tab"
             @click="activeTab = tab"
             type="button"
-            class="flex-1 min-w-[62px] py-2 text-xs font-semibold rounded-xl transition text-center whitespace-nowrap"
+            class="flex-1 min-w-[62px] py-2 text-xs font-semibold rounded-xl transition text-center whitespace-nowrap cursor-pointer"
             :class="activeTab === tab ? 'bg-[#2C3E35] text-white shadow-sm' : 'text-[#8A9992] hover:text-[#2C3E35]'"
           >
             {{ tab }}
@@ -161,35 +163,6 @@ const selectedActivity = ref(null);
                   <span class="text-xs font-bold text-[#2C3E35]">{{ user.lastLogin }}</span>
                 </div>
               </div>
-              <div class="flex items-center gap-3.5">
-                <div class="w-8 h-8 rounded-xl bg-[#FAF7F2] border border-[#EAE7E1] flex items-center justify-center text-[#2C3E35] shrink-0">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                </div>
-                <div>
-                  <span class="text-[10px] text-[#8A9992] font-medium block">Today's Potret</span>
-                  <span class="text-xs font-bold text-[#2C3E35]">{{ user.todayPotret }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h3 class="text-xs font-bold text-[#2C3E35] font-serif uppercase tracking-wider mb-3">Quick Stats</h3>
-            <div class="grid grid-cols-2 gap-3">
-              <div class="p-4 bg-white border border-[#EAE7E1] rounded-2xl shadow-xs">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="text-base">📸</span>
-                  <span class="text-[10px] text-[#8A9992] font-medium">Total Check-ins</span>
-                </div>
-                <span class="text-2xl font-bold text-[#2C3E35]">{{ user.stats.checkIns ?? 0 }}</span>
-              </div>
-              <div class="p-4 bg-white border border-[#EAE7E1] rounded-2xl shadow-xs">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="text-base">🎯</span>
-                  <span class="text-[10px] text-[#8A9992] font-medium">Goals</span>
-                </div>
-                <span class="text-2xl font-bold text-[#2C3E35]">{{ user.stats.goals ?? 0 }}</span>
-              </div>
             </div>
           </div>
         </div>
@@ -200,7 +173,7 @@ const selectedActivity = ref(null);
             <h3 class="text-xs font-bold text-[#2C3E35] font-serif uppercase tracking-wider">Potret Gallery</h3>
             <select 
               v-model="selectedMonth" 
-              class="px-2.5 py-1 bg-white border border-[#EAE7E1] rounded-xl text-[11px] font-semibold text-[#2C3E35] focus:outline-none"
+              class="px-2.5 py-1 bg-white border border-[#EAE7E1] rounded-xl text-[11px] font-semibold text-[#2C3E35] focus:outline-none cursor-pointer"
             >
               <option v-for="m in availableMonths" :key="m" :value="m">{{ m }}</option>
             </select>
@@ -223,8 +196,8 @@ const selectedActivity = ref(null);
           <EmptyState v-else title="No Potret Photos" description="User hasn't uploaded any daily portraits yet." />
         </div>
 
-        <!-- TAB: PHOTO DUMP GALLERY -->
-        <div v-else-if="activeTab === ' Photo Dump'" class="space-y-4">
+        <!-- TAB 3: DUMP -->
+        <div v-else-if="activeTab === 'Dump'" class="space-y-4">
           <div class="flex justify-between items-center">
             <h3 class="text-xs font-bold text-[#2C3E35] font-serif uppercase tracking-wider">Photo Dump Gallery</h3>
             <span class="text-xs text-[#8A9992]">{{ userPhotoDumps.length }} photos</span>
@@ -238,7 +211,6 @@ const selectedActivity = ref(null);
             >
               <img :src="item.image_url" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" alt="Photo Dump">
 
-              <!-- Tombol Download Asli di atas gambar / hover -->
               <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2">
                 <a :href="item.download_url" class="px-3 py-1.5 bg-white text-gray-900 rounded-xl text-[11px] font-bold shadow hover:bg-gray-100">
                   Download Asli
@@ -254,7 +226,27 @@ const selectedActivity = ref(null);
           <EmptyState v-else title="No Photo Dumps" description="User hasn't uploaded any photo dumps yet." />
         </div>
 
-        <!-- TAB 3: GOALS -->
+        <!-- TAB 4: NOTES (DETAIL BISA DILIHAT ADMIN) -->
+        <div v-else-if="activeTab === 'Notes'" class="space-y-3">
+          <h3 class="text-xs font-bold text-[#2C3E35] font-serif uppercase tracking-wider mb-2">User Notes</h3>
+          <div v-if="notes.length > 0" class="space-y-3">
+            <div 
+              v-for="note in notes" 
+              :key="note.id" 
+              @click="selectedNote = note"
+              class="p-4 bg-white border border-[#EAE7E1] rounded-2xl shadow-xs cursor-pointer hover:border-[#2C3E35]/40 transition"
+            >
+              <div class="flex justify-between items-start mb-1">
+                <h4 class="text-xs font-bold text-[#2C3E35]">{{ note.title || 'Untitled Note' }}</h4>
+                <span class="text-[10px] text-[#8A9992]">{{ note.date }}</span>
+              </div>
+              <p class="text-xs text-gray-600 line-clamp-2 mt-1">{{ note.content }}</p>
+            </div>
+          </div>
+          <EmptyState v-else title="No Notes Found" description="User hasn't written any notes yet." />
+        </div>
+
+        <!-- TAB 5: GOALS -->
         <div v-else-if="activeTab === 'Goals'" class="space-y-4">
           <div class="flex justify-between items-center">
             <h3 class="text-xs font-bold text-[#2C3E35] font-serif uppercase tracking-wider">Goals</h3>
@@ -264,7 +256,7 @@ const selectedActivity = ref(null);
                 :key="pill"
                 @click="goalFilter = pill"
                 type="button"
-                class="px-2.5 py-1 rounded-full text-[10px] font-semibold transition"
+                class="px-2.5 py-1 rounded-full text-[10px] font-semibold transition cursor-pointer"
                 :class="goalFilter === pill ? 'bg-[#2C3E35] text-white shadow-xs' : 'bg-white border border-[#EAE7E1] text-[#8A9992] hover:text-[#2C3E35]'"
               >
                 {{ pill }}
@@ -288,8 +280,6 @@ const selectedActivity = ref(null);
                 </div>
                 <span class="text-xs font-bold text-[#2C3E35]">{{ goal.progress }}</span>
               </div>
-              
-              <!-- Progress Bar % Skala Slider -->
               <div class="w-full bg-[#FAF7F2] h-2.5 rounded-full overflow-hidden border border-[#EAE7E1]">
                 <div class="bg-[#2C3E35] h-full transition-all duration-500 rounded-full" :style="{ width: goal.progress }"></div>
               </div>
@@ -299,46 +289,48 @@ const selectedActivity = ref(null);
           <EmptyState v-else title="No Goals Found" description="No goals matching the selected filter." />
         </div>
 
-        <!-- TAB 4: QUIZ -->
-        <div v-else-if="activeTab === 'Quiz'" class="space-y-3">
-          <h3 class="text-xs font-bold text-[#2C3E35] font-serif uppercase tracking-wider mb-2">Quiz History</h3>
-          <div v-if="quizzes.length > 0" class="space-y-3">
+        <!-- TAB 6: WISHLIST (DETAIL BISA DILIHAT ADMIN) -->
+        <div v-else-if="activeTab === 'Wishlist'" class="space-y-3">
+          <h3 class="text-xs font-bold text-[#2C3E35] font-serif uppercase tracking-wider mb-2">User Wishlist</h3>
+          <div v-if="wishlists.length > 0" class="space-y-3">
             <div 
-              v-for="quiz in quizzes" 
-              :key="quiz.id" 
-              class="p-3.5 bg-white border border-[#EAE7E1] rounded-2xl shadow-xs flex items-center justify-between"
+              v-for="item in wishlists" 
+              :key="item.id" 
+              @click="selectedWishlist = item"
+              class="p-4 bg-white border border-[#EAE7E1] rounded-2xl shadow-xs cursor-pointer hover:border-[#2C3E35]/40 transition flex items-center justify-between"
             >
               <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
-                  <span class="text-base">✨</span>
+                  <span class="text-base">🎁</span>
                 </div>
                 <div>
-                  <h4 class="text-xs font-bold text-[#2C3E35]">{{ quiz.title }}</h4>
-                  <p class="text-[10px] text-[#8A9992] mt-0.5">{{ quiz.date }} • {{ quiz.score }}</p>
+                  <h4 class="text-xs font-bold text-[#2C3E35]">{{ item.title }}</h4>
+                  <p class="text-[10px] text-[#8A9992] mt-0.5">{{ item.category || 'General' }} • {{ item.price ? 'Rp ' + item.price : 'No Price' }}</p>
                 </div>
               </div>
               <span class="px-2.5 py-1 rounded-full text-[9px] font-bold bg-[#E8ECE9] text-[#2C3E35]">
-                {{ quiz.status }}
+                {{ item.status || 'Wanted' }}
               </span>
             </div>
           </div>
-          <EmptyState v-else title="No Quizzes Taken" description="User hasn't completed any self-discovery quizzes yet." />
+          <EmptyState v-else title="No Wishlist Found" description="User hasn't added any wishlists yet." />
         </div>
 
-        <!-- TAB 5: ACTIVITY HISTORY -->
+        <!-- TAB 7: ACTIVITY HISTORY -->
         <div v-else-if="activeTab === 'Activity'" class="space-y-3">
           <div class="flex justify-between items-center mb-1">
             <h3 class="text-xs font-bold text-[#2C3E35] font-serif uppercase tracking-wider">Activity History</h3>
             
-            <!-- Dropdown Filter Tipe Aktivitas -->
             <select 
               v-model="activityTypeFilter" 
-              class="px-2.5 py-1 bg-white border border-[#EAE7E1] rounded-xl text-[10px] font-semibold text-[#2C3E35] focus:outline-none"
+              class="px-2.5 py-1 bg-white border border-[#EAE7E1] rounded-xl text-[10px] font-semibold text-[#2C3E35] focus:outline-none cursor-pointer"
             >
               <option value="All">All Types</option>
               <option value="Check-in">Check-in</option>
+              <option value="Photo Dump">Photo Dump</option>
               <option value="Goals">Goals</option>
-              <option value="Quiz">Quiz</option>
+              <option value="Notes">Notes</option>
+              <option value="Wishlist">Wishlist</option>
               <option value="Other">Other</option>
             </select>
           </div>
@@ -352,10 +344,7 @@ const selectedActivity = ref(null);
             >
               <div class="flex items-center gap-3 min-w-0">
                 <div class="w-8 h-8 rounded-xl bg-[#FAF7F2] border border-[#EAE7E1] flex items-center justify-center text-sm shrink-0">
-                  <span v-if="item.type === 'Check-in'">📸</span>
-                  <span v-else-if="item.type === 'Goals'">🎯</span>
-                  <span v-else-if="item.type === 'Quiz'">✨</span>
-                  <span v-else>🌿</span>
+                  <span>🌿</span>
                 </div>
                 <div class="min-w-0">
                   <p class="text-xs font-bold text-[#2C3E35] truncate">{{ item.action }}</p>
@@ -374,7 +363,7 @@ const selectedActivity = ref(null);
       <BottomNav />
     </div>
 
-    <!-- Modal Detail Foto -->
+    <!-- Modal Detail Foto Potret -->
     <PotretDetailModal
       :is-open="isModalOpen"
       :photo="filteredPotrets[selectedPhotoIndex]"
@@ -386,16 +375,47 @@ const selectedActivity = ref(null);
       @delete="deletePhoto"
     />
 
-    <!-- Modal Pop-up Detail Aktivitas -->
+    <!-- Modal Detail Note -->
+    <div v-if="selectedNote" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-xl">
+        <h3 class="font-bold text-base text-[#2C3E35]">{{ selectedNote.title || 'Note Detail' }}</h3>
+        <p class="text-xs text-gray-700 whitespace-pre-line leading-relaxed bg-[#FAF7F2] p-4 rounded-2xl border border-[#EAE7E1]">{{ selectedNote.content }}</p>
+        <p class="text-[10px] text-[#8A9992]">Created at: {{ selectedNote.date }}</p>
+        <button @click="selectedNote = null" class="w-full py-2.5 bg-[#2C3E35] text-white rounded-2xl text-xs font-bold cursor-pointer">
+          Close
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal Detail Wishlist -->
+    <div v-if="selectedWishlist" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-xl">
+        <div class="flex justify-between items-center">
+          <h3 class="font-bold text-base text-[#2C3E35]">{{ selectedWishlist.title }}</h3>
+          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#E8ECE9] text-[#2C3E35]">{{ selectedWishlist.status }}</span>
+        </div>
+        <div class="bg-[#FAF7F2] p-4 rounded-2xl border border-[#EAE7E1] space-y-2 text-xs">
+          <p><span class="font-semibold text-gray-500">Category:</span> {{ selectedWishlist.category || '-' }}</p>
+          <p><span class="font-semibold text-gray-500">Price:</span> {{ selectedWishlist.price ? 'Rp ' + selectedWishlist.price : '-' }}</p>
+          <p><span class="font-semibold text-gray-500">Description:</span> {{ selectedWishlist.description || '-' }}</p>
+          <p v-if="selectedWishlist.url"><span class="font-semibold text-gray-500">Link:</span> <a :href="selectedWishlist.url" target="_blank" class="text-blue-600 underline truncate block">{{ selectedWishlist.url }}</a></p>
+        </div>
+        <button @click="selectedWishlist = null" class="w-full py-2.5 bg-[#2C3E35] text-white rounded-2xl text-xs font-bold cursor-pointer">
+          Close
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal Detail Aktivitas -->
     <div v-if="selectedActivity" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4">
-        <h3 class="font-bold text-sm text-[#2C3E35]">Detail Aktivitas</h3>
+      <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-xl">
+        <h3 class="font-bold text-base text-[#2C3E35]">Detail Aktivitas</h3>
         <p class="text-xs text-gray-700 font-medium">{{ selectedActivity.action }}</p>
-        <div class="bg-[#FAF7F2] p-3 rounded-xl border border-[#EAE7E1] text-[11px] text-[#8A9992]">
+        <div class="bg-[#FAF7F2] p-3 rounded-2xl border border-[#EAE7E1] text-[11px] text-[#8A9992]">
           Waktu: {{ selectedActivity.date }} ({{ selectedActivity.time }})
         </div>
-        <button @click="selectedActivity = null" class="w-full py-2 bg-[#2C3E35] text-white rounded-xl text-xs font-bold">
-          Tutup
+        <button @click="selectedActivity = null" class="w-full py-2.5 bg-[#2C3E35] text-white rounded-2xl text-xs font-bold cursor-pointer">
+          Close
         </button>
       </div>
     </div>
