@@ -114,18 +114,47 @@ class ProfileController extends Controller
         $validated = $request->validate(['avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120']]);
         $profile = $request->user()->profile()->firstOrCreate([]);
         $oldPath = $profile->avatar_path;
-        $profile->avatar_path = $validated['avatar']->store('avatars/'.$request->user()->id, 'local');
+        
+        // UBAH: Upload ke Cloudinary
+        $profile->avatar_path = $validated['avatar']->storeOnCloudinary('herspace/avatars')->getSecurePath();
         $profile->save();
-        if ($oldPath) Storage::disk('local')->delete($oldPath);
+        
+        // Bersihkan foto profil lama
+        if ($oldPath) {
+            if (str_starts_with($oldPath, 'http')) {
+                $this->deleteFromCloudinary($oldPath);
+            } elseif (Storage::disk('local')->exists($oldPath)) {
+                Storage::disk('local')->delete($oldPath);
+            }
+        }
 
-        return response()->json(['message' => 'Avatar berhasil diperbarui.', 'avatar_url' => url('/api/profile/avatar')]);
+        return response()->json([
+            'message' => 'Avatar berhasil diperbarui.', 
+            'avatar_url' => $profile->avatar_path // Kembalikan URL langsung
+        ]);
     }
 
     public function avatar(Request $request)
     {
         $path = $request->user()->profile?->avatar_path;
-        abort_unless($path && Storage::disk('local')->exists($path), 404);
+        
+        // UBAH: Jika path adalah URL Cloudinary, langsung redirect
+        if ($path && str_starts_with($path, 'http')) {
+            return redirect($path);
+        }
 
+        abort_unless($path && Storage::disk('local')->exists($path), 404);
         return Storage::disk('local')->response($path);
+    }
+
+    // TAMBAHKAN HELPER INI
+    private function deleteFromCloudinary($url) {
+        if (!str_starts_with($url, 'http')) return;
+        $parts = explode('/upload/', $url);
+        if (isset($parts[1])) {
+            $publicIdWithExt = preg_replace('/^v\d+\//', '', $parts[1]);
+            $publicId = pathinfo($publicIdWithExt, PATHINFO_DIRNAME) . '/' . pathinfo($publicIdWithExt, PATHINFO_FILENAME);
+            cloudinary()->destroy($publicId);
+        }
     }
 }

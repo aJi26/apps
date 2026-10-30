@@ -97,10 +97,11 @@ class DailyPotretController extends Controller
         $logicalToday = $this->getLogicalToday();
         $photo = $validated['photo'];
 
-        $path = $photo->store('portraits', 'local');
+        // UBAH: Upload ke Cloudinary dan dapatkan URL amannya
+        $path = $photo->storeOnCloudinary('herspace/portraits')->getSecurePath();
 
         if (! is_string($path) || $path === '') {
-            throw new RuntimeException('Foto Potret gagal disimpan ke private storage.');
+            throw new RuntimeException('Foto Potret gagal disimpan ke Cloudinary.');
         }
 
         try {
@@ -115,7 +116,10 @@ class DailyPotretController extends Controller
                 $existingPortrait = Portrait::where('checkin_id', $checkin->id)->first();
 
                 if ($existingPortrait) {
-                    if (Storage::disk('local')->exists($existingPortrait->path)) {
+                    // Opsional: Hapus foto lama di Cloudinary jika user update potret hari ini
+                    if (str_starts_with($existingPortrait->path, 'http')) {
+                        $this->deleteFromCloudinary($existingPortrait->path);
+                    } elseif (Storage::disk('local')->exists($existingPortrait->path)) {
                         Storage::disk('local')->delete($existingPortrait->path);
                     }
 
@@ -127,6 +131,7 @@ class DailyPotretController extends Controller
                     return ['portrait' => $existingPortrait, 'created' => false];
                 }
 
+                // ... (sisa kode Portrait::create dan ActivityLog::create tetap sama) ...
                 $portrait = Portrait::create([
                     'checkin_id' => $checkin->id,
                     'path' => $path,
@@ -149,12 +154,23 @@ class DailyPotretController extends Controller
                 'completed' => true,
                 'portrait' => [
                     'id' => $result['portrait']->id,
-                    'image_url' => str_starts_with($result['portrait']->path, 'http') ? $result['portrait']->path : url("/api/portraits/{$result['portrait']->id}/image"),
+                    'image_url' => $result['portrait']->path, // Langsung pakai URL Cloudinary
                 ],
             ], 201);
         } catch (\Throwable $e) {
-            Storage::disk('local')->delete($path);
+            $this->deleteFromCloudinary($path);
             throw $e;
+        }
+    }
+
+    // TAMBAHKAN HELPER INI DI DALAM KELAS UNTUK MENGHAPUS FILE CLOUDINARY
+    private function deleteFromCloudinary($url) {
+        if (!str_starts_with($url, 'http')) return;
+        $parts = explode('/upload/', $url);
+        if (isset($parts[1])) {
+            $publicIdWithExt = preg_replace('/^v\d+\//', '', $parts[1]);
+            $publicId = pathinfo($publicIdWithExt, PATHINFO_DIRNAME) . '/' . pathinfo($publicIdWithExt, PATHINFO_FILENAME);
+            cloudinary()->destroy($publicId);
         }
     }
 }

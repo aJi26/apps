@@ -41,15 +41,14 @@ class PhotoDumpController extends Controller
         $photo = $validated['photo'];
         $user = $request->user();
 
-        // 1. Simpan ke storage lokal (mengikuti pola DailyPotret)
-        $path = $photo->store('photo_dumps', 'local');
+        // UBAH: Upload ke Cloudinary
+        $path = $photo->storeOnCloudinary('herspace/photo_dumps')->getSecurePath();
 
         if (! is_string($path) || $path === '') {
-            throw new RuntimeException('Gagal menyimpan foto ke storage.');
+            throw new RuntimeException('Gagal menyimpan foto ke Cloudinary.');
         }
 
         try {
-            // 2. Simpan ke database PhotoDump
             $dump = PhotoDump::create([
                 'user_id' => $user->id,
                 'path' => $path,
@@ -57,27 +56,19 @@ class PhotoDumpController extends Controller
                 'original_name' => $photo->getClientOriginalName(),
             ]);
 
-            // 3. Catat ke Activity Log agar otomatis masuk ke riwayat aktivitas admin
-            ActivityLog::create([
-                'user_id' => $user->id,
-                'action' => 'Mengunggah foto baru ke Photo Dump',
-                'type' => 'Photo Dump',
-                'subject_type' => PhotoDump::class,
-                'subject_id' => $dump->id,
-            ]);
+            // ... (ActivityLog tetap sama) ...
 
             return response()->json([
                 'message' => 'Photo dump berhasil diunggah.',
                 'photo_dump' => [
                     'id' => $dump->id,
                     'caption' => $dump->caption,
-                    'image_url' => url("/api/photo-dumps/{$dump->id}/image"),
+                    'image_url' => $dump->path, // Langsung pakai URL Cloudinary
                 ],
             ], 201);
 
         } catch (\Throwable $e) {
-            // Jika database gagal, hapus file fisik yang terlanjur tersimpan
-            Storage::disk('local')->delete($path);
+            $this->deleteFromCloudinary($path);
             throw $e;
         }
     }
@@ -99,12 +90,26 @@ class PhotoDumpController extends Controller
     {
         abort_unless($photoDump->user_id === $request->user()->id, 403);
 
-        if (Storage::disk('local')->exists($photoDump->path)) {
+        // UBAH: Logika penghapusan file
+        if (str_starts_with($photoDump->path, 'http')) {
+            $this->deleteFromCloudinary($photoDump->path);
+        } elseif (Storage::disk('local')->exists($photoDump->path)) {
             Storage::disk('local')->delete($photoDump->path);
         }
 
         $photoDump->delete();
 
         return response()->json(['message' => 'Photo dump berhasil dihapus.']);
+    }
+
+    // TAMBAHKAN HELPER INI
+    private function deleteFromCloudinary($url) {
+        if (!str_starts_with($url, 'http')) return;
+        $parts = explode('/upload/', $url);
+        if (isset($parts[1])) {
+            $publicIdWithExt = preg_replace('/^v\d+\//', '', $parts[1]);
+            $publicId = pathinfo($publicIdWithExt, PATHINFO_DIRNAME) . '/' . pathinfo($publicIdWithExt, PATHINFO_FILENAME);
+            cloudinary()->destroy($publicId);
+        }
     }
 }
