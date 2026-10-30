@@ -11,13 +11,13 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Cloudinary\Cloudinary;
 use RuntimeException;
 
 class DailyPotretController extends Controller
 {
     private const TIMEZONE = 'Asia/Jakarta';
 
-    // Penentu "Hari" baru dimulai jam 07:00 Pagi
     private function getLogicalToday(): string
     {
         $now = Carbon::now(self::TIMEZONE);
@@ -97,8 +97,8 @@ class DailyPotretController extends Controller
         $logicalToday = $this->getLogicalToday();
         $photo = $validated['photo'];
 
-        // BYPASS BUG: Gunakan uploadApi()->upload() langsung
-        $uploaded = cloudinary()->uploadApi()->upload($photo->getRealPath(), [
+        $cloudinary = new Cloudinary(env('CLOUDINARY_URL'));
+        $uploaded = $cloudinary->uploadApi()->upload($photo->getRealPath(), [
             'folder' => 'herspace/portraits'
         ]);
 
@@ -165,14 +165,15 @@ class DailyPotretController extends Controller
         }
     }
 
-    // TAMBAHKAN HELPER INI DI DALAM KELAS UNTUK MENGHAPUS FILE CLOUDINARY
     private function deleteFromCloudinary($url) {
         if (!str_starts_with($url, 'http')) return;
         $parts = explode('/upload/', $url);
         if (isset($parts[1])) {
             $publicIdWithExt = preg_replace('/^v\d+\//', '', $parts[1]);
             $publicId = pathinfo($publicIdWithExt, PATHINFO_DIRNAME) . '/' . pathinfo($publicIdWithExt, PATHINFO_FILENAME);
-            cloudinary()->destroy($publicId);
+            
+            $cloudinary = new Cloudinary(env('CLOUDINARY_URL'));
+            $cloudinary->uploadApi()->destroy($publicId);
         }
     }
 }

@@ -8,6 +8,7 @@ use App\Models\Profile;
 use App\Models\UserPreference;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Cloudinary\Cloudinary;
 
 class ProfileController extends Controller
 {
@@ -117,8 +118,8 @@ class ProfileController extends Controller
         
         $file = $validated['avatar'];
 
-        // UBAH KE UPLOAD API LANGSUNG (Bypass bug package CloudinaryEngine)
-        $uploaded = cloudinary()->uploadApi()->upload($file->getRealPath(), [
+        $cloudinary = new Cloudinary(env('CLOUDINARY_URL'));
+        $uploaded = $cloudinary->uploadApi()->upload($file->getRealPath(), [
             'folder' => 'herspace/avatars'
         ]);
 
@@ -131,7 +132,6 @@ class ProfileController extends Controller
         $profile->avatar_path = $uploadedFileUrl;
         $profile->save();
         
-        // Bersihkan foto profil lama
         if ($oldPath) {
             if (str_starts_with($oldPath, 'http')) {
                 $this->deleteFromCloudinary($oldPath);
@@ -150,7 +150,6 @@ class ProfileController extends Controller
     {
         $path = $request->user()->profile?->avatar_path;
         
-        // UBAH: Jika path adalah URL Cloudinary, langsung redirect
         if ($path && str_starts_with($path, 'http')) {
             return redirect($path);
         }
@@ -159,14 +158,15 @@ class ProfileController extends Controller
         return Storage::disk('local')->response($path);
     }
 
-    // TAMBAHKAN HELPER INI
     private function deleteFromCloudinary($url) {
         if (!str_starts_with($url, 'http')) return;
         $parts = explode('/upload/', $url);
         if (isset($parts[1])) {
             $publicIdWithExt = preg_replace('/^v\d+\//', '', $parts[1]);
             $publicId = pathinfo($publicIdWithExt, PATHINFO_DIRNAME) . '/' . pathinfo($publicIdWithExt, PATHINFO_FILENAME);
-            cloudinary()->destroy($publicId);
+            
+            $cloudinary = new Cloudinary(env('CLOUDINARY_URL'));
+            $cloudinary->uploadApi()->destroy($publicId);
         }
     }
 }
