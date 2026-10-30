@@ -239,7 +239,7 @@ class SendDailyReminders extends Command
                     'android' => [
                         'priority' => 'HIGH',
                         'notification' => [
-                            'channel_id' => 'her_space_channel_v6',
+                            'channel_id' => 'her_space_channel_v7',
                             'sound' => 'herspace',
                             'default_sound' => false,
                             'notification_priority' => 'PRIORITY_MAX',
