@@ -555,23 +555,24 @@ class MonitorController extends Controller
 
         $profile = $user->profile;
 
-        // 1. Prioritaskan file foto fisik dari Flutter (kolom 'avatar_path')
-        if ($profile && ! empty($profile->avatar_path)) {
-            $path = ltrim($profile->avatar_path, '/');
-
-            // Jika tersimpan di disk 'local'
-            if (Storage::disk('local')->exists($path)) {
-                // Karena disimpan di disk local internal, buatkan URL response atau panggil via route khusus
-                return route('admin.user.avatar', $user->id);
-            }
-
-            // Jika tersimpan di disk 'public'
-            if (Storage::disk('public')->exists($path)) {
-                return asset('storage/' . $path);
-            }
+        $path = $profile?->avatar_path;
+        
+        // 1. Jika avatar_path sudah berupa URL Cloudinary (http / https), langsung kembalikan!
+        if (! empty($path) && (str_starts_with($path, 'http://') || str_starts_with($path, 'https://'))) {
+            return $path;
         }
 
-        // 2. Jika ada URL gambar eksternal di kolom 'avatar'
+        // 2. Jika tersimpan di disk 'local' (file lama)
+        if (! empty($path) && Storage::disk('local')->exists(ltrim($path, '/'))) {
+            return route('admin.user.avatar', $user->id);
+        }
+
+        // 3. Jika tersimpan di disk 'public'
+        if (! empty($path) && Storage::disk('public')->exists(ltrim($path, '/'))) {
+            return asset('storage/' . ltrim($path, '/'));
+        }
+
+        // 4. Cek kolom 'avatar' alternatif
         $avatar = $profile?->avatar;
         if (! empty($avatar)) {
             if (str_starts_with($avatar, 'http://') || str_starts_with($avatar, 'https://')) {
@@ -583,7 +584,7 @@ class MonitorController extends Controller
             }
         }
 
-        // 3. Fallback otomatis ke generator SVG Inisial Nama
+        // 5. Fallback otomatis ke generator SVG Inisial Nama
         return $this->avatar($user->name);
     }
 
