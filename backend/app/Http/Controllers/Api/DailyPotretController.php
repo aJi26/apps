@@ -97,8 +97,10 @@ class DailyPotretController extends Controller
         $logicalToday = $this->getLogicalToday();
         $photo = $validated['photo'];
 
-        // UBAH: Upload ke Cloudinary dan dapatkan URL amannya
-        $path = $photo->storeOnCloudinary('herspace/portraits')->getSecurePath();
+        // UBAH: Gunakan cloudinary()->upload() agar aman dari error null URL
+        $path = cloudinary()->upload($photo->getRealPath(), [
+            'folder' => 'herspace/portraits'
+        ])->getSecurePath();
 
         if (! is_string($path) || $path === '') {
             throw new RuntimeException('Foto Potret gagal disimpan ke Cloudinary.');
@@ -116,7 +118,6 @@ class DailyPotretController extends Controller
                 $existingPortrait = Portrait::where('checkin_id', $checkin->id)->first();
 
                 if ($existingPortrait) {
-                    // Opsional: Hapus foto lama di Cloudinary jika user update potret hari ini
                     if (str_starts_with($existingPortrait->path, 'http')) {
                         $this->deleteFromCloudinary($existingPortrait->path);
                     } elseif (Storage::disk('local')->exists($existingPortrait->path)) {
@@ -131,7 +132,6 @@ class DailyPotretController extends Controller
                     return ['portrait' => $existingPortrait, 'created' => false];
                 }
 
-                // ... (sisa kode Portrait::create dan ActivityLog::create tetap sama) ...
                 $portrait = Portrait::create([
                     'checkin_id' => $checkin->id,
                     'path' => $path,
@@ -154,7 +154,7 @@ class DailyPotretController extends Controller
                 'completed' => true,
                 'portrait' => [
                     'id' => $result['portrait']->id,
-                    'image_url' => $result['portrait']->path, // Langsung pakai URL Cloudinary
+                    'image_url' => $result['portrait']->path,
                 ],
             ], 201);
         } catch (\Throwable $e) {

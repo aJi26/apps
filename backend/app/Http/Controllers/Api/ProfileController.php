@@ -115,8 +115,18 @@ class ProfileController extends Controller
         $profile = $request->user()->profile()->firstOrCreate([]);
         $oldPath = $profile->avatar_path;
         
-        // UBAH: Upload ke Cloudinary
-        $profile->avatar_path = $validated['avatar']->storeOnCloudinary('herspace/avatars')->getSecurePath();
+        $file = $validated['avatar'];
+
+        // PERBAIKAN: Gunakan Cloudinary Upload API secara eksplisit
+        $uploadedFileUrl = cloudinary()->upload($file->getRealPath(), [
+            'folder' => 'herspace/avatars'
+        ])->getSecurePath();
+
+        if (!$uploadedFileUrl) {
+            throw new \RuntimeException('Gagal mengunggah avatar ke Cloudinary.');
+        }
+
+        $profile->avatar_path = $uploadedFileUrl;
         $profile->save();
         
         // Bersihkan foto profil lama
@@ -130,7 +140,7 @@ class ProfileController extends Controller
 
         return response()->json([
             'message' => 'Avatar berhasil diperbarui.', 
-            'avatar_url' => $profile->avatar_path // Kembalikan URL langsung
+            'avatar_url' => $profile->avatar_path 
         ]);
     }
 

@@ -41,8 +41,10 @@ class PhotoDumpController extends Controller
         $photo = $validated['photo'];
         $user = $request->user();
 
-        // UBAH: Upload ke Cloudinary
-        $path = $photo->storeOnCloudinary('herspace/photo_dumps')->getSecurePath();
+        // UBAH: Gunakan cloudinary()->upload()
+        $path = cloudinary()->upload($photo->getRealPath(), [
+            'folder' => 'herspace/photo_dumps'
+        ])->getSecurePath();
 
         if (! is_string($path) || $path === '') {
             throw new RuntimeException('Gagal menyimpan foto ke Cloudinary.');
@@ -56,14 +58,20 @@ class PhotoDumpController extends Controller
                 'original_name' => $photo->getClientOriginalName(),
             ]);
 
-            // ... (ActivityLog tetap sama) ...
+            ActivityLog::create([
+                'user_id' => $user->id,
+                'action' => 'Mengunggah foto baru ke Photo Dump',
+                'type' => 'Photo Dump',
+                'subject_type' => PhotoDump::class,
+                'subject_id' => $dump->id,
+            ]);
 
             return response()->json([
                 'message' => 'Photo dump berhasil diunggah.',
                 'photo_dump' => [
                     'id' => $dump->id,
                     'caption' => $dump->caption,
-                    'image_url' => $dump->path, // Langsung pakai URL Cloudinary
+                    'image_url' => $dump->path,
                 ],
             ], 201);
 
