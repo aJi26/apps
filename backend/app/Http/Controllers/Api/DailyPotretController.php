@@ -97,10 +97,12 @@ class DailyPotretController extends Controller
         $logicalToday = $this->getLogicalToday();
         $photo = $validated['photo'];
 
-        // UBAH: Gunakan cloudinary()->upload() agar aman dari error null URL
-        $path = cloudinary()->upload($photo->getRealPath(), [
+        // BYPASS BUG: Gunakan uploadApi()->upload() langsung
+        $uploaded = cloudinary()->uploadApi()->upload($photo->getRealPath(), [
             'folder' => 'herspace/portraits'
-        ])->getSecurePath();
+        ]);
+
+        $path = $uploaded['secure_url'] ?? null;
 
         if (! is_string($path) || $path === '') {
             throw new RuntimeException('Foto Potret gagal disimpan ke Cloudinary.');

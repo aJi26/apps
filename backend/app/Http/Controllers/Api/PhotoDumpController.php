@@ -41,10 +41,12 @@ class PhotoDumpController extends Controller
         $photo = $validated['photo'];
         $user = $request->user();
 
-        // UBAH: Gunakan cloudinary()->upload()
-        $path = cloudinary()->upload($photo->getRealPath(), [
+        // BYPASS BUG: Gunakan uploadApi()->upload() langsung
+        $uploaded = cloudinary()->uploadApi()->upload($photo->getRealPath(), [
             'folder' => 'herspace/photo_dumps'
-        ])->getSecurePath();
+        ]);
+
+        $path = $uploaded['secure_url'] ?? null;
 
         if (! is_string($path) || $path === '') {
             throw new RuntimeException('Gagal menyimpan foto ke Cloudinary.');

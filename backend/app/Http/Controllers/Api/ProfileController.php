@@ -117,10 +117,12 @@ class ProfileController extends Controller
         
         $file = $validated['avatar'];
 
-        // PERBAIKAN: Gunakan Cloudinary Upload API secara eksplisit
-        $uploadedFileUrl = cloudinary()->upload($file->getRealPath(), [
+        // UBAH KE UPLOAD API LANGSUNG (Bypass bug package CloudinaryEngine)
+        $uploaded = cloudinary()->uploadApi()->upload($file->getRealPath(), [
             'folder' => 'herspace/avatars'
-        ])->getSecurePath();
+        ]);
+
+        $uploadedFileUrl = $uploaded['secure_url'] ?? null;
 
         if (!$uploadedFileUrl) {
             throw new \RuntimeException('Gagal mengunggah avatar ke Cloudinary.');
