@@ -60,7 +60,7 @@ class SendDailyReminders extends Command
 
         foreach ($users as $user) {
             $title = "Selamat Pagi, {$user->name}! ☀️";
-            $body = "Gimana perasaanmu pagi ini? Yuk abadikan potret dan catat mood hari inimu di Her Space!";
+            $body = "Gimana perasaanmu pagi ini? Pilih moodmu yaa.. jangan lupa PAP jugaa!";
             
             $this->sendFcmPush($user->fcm_token, $title, $body);
         }
